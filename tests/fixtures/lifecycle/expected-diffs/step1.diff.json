@@ -1,0 +1,17 @@
+{
+  "diff_of": ["graph.step0.json", "graph.step1.json"],
+  "source_commit": "dae50018 fix(971): escrow follow-ups — persist charge id, bound cron batch, reversal idempotency (#985)",
+  "nodes_added": [],
+  "nodes_removed": [],
+  "nodes_changed": {
+    "op:webhook/CreateOrder": {
+      "intent": {
+        "from": "INSERT orders row from Stripe session metadata; sets status=paid, captures all financial columns, stripe_checkout_session_id, stripe_payment_intent_id, escrow payment_model.",
+        "to": "INSERT orders row from Stripe session metadata; sets status=paid, captures all financial columns, stripe_checkout_session_id, stripe_payment_intent_id, stripe_charge_id (PI latest_charge resolved once, best-effort; NULL fallback re-retrieves at payout), escrow payment_model."
+      }
+    }
+  },
+  "edges_added": [],
+  "edges_removed": [],
+  "edges_changed": []
+}

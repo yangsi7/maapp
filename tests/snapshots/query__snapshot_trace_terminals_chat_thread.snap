@@ -1,0 +1,17 @@
+---
+source: tests/query.rs
+expression: rs
+---
+[
+  "act:info/GoBack",
+  "act:profile/GoBack",
+  "act:shared/GoBack",
+  "act:thread/GoBack",
+  "act:viewer/GoBack",
+  "ds:realtime/Socket",
+  "stage:rt/Ingest",
+  "store:ContactsStore",
+  "store:ConversationStore",
+  "store:NotificationSettingsStore",
+  "store:ThreadStore"
+]

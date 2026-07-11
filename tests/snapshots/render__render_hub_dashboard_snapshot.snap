@@ -1,0 +1,76 @@
+---
+source: tests/render.rs
+expression: "render_out(&[\"hub\", \"examples/dashboard.json\"])"
+---
+# App-Spec Graph — BLUEPRINT hub (generated; do NOT hand-edit)
+
+> schema `maapp-graph` v`1.3` · 49 nodes · 70 edges. Regenerate with `graph render hub`.
+
+## surface
+
+| id | intent | slice | key out-edges |
+|---|---|---|---|
+| `comp:analytics/BreakdownList` | Per-category breakdown rows on the metric-detail screen. |  | — |
+| `comp:analytics/ChartView` | Reusable chart renderer (line/bar) bound to a chart-series store; shows loading/empty/error states. |  | — |
+| `comp:analytics/MetricCard` | One metric card: title, headline value, delta %, inline chart for the active filter range. |  | — |
+| `comp:analytics/PeriodSegment` | Weekly/Monthly/Yearly segmented control inside the filter sheet, bound to the draft filter view-state. |  | — |
+| `screen:analytics/FilterPeriod` | Filter-by-period sheet: weekly/monthly/yearly segment + month/year picker + 'Apply to all charts' toggle. |  | renders→comp:analytics/PeriodSegment |
+| `screen:analytics/MetricDetail` | Drill-down detail for one metric: full-height chart, breakdown rows, export button. |  | renders→comp:analytics/BreakdownList; renders→comp:analytics/ChartView |
+| `screen:analytics/Overview` | Analytics overview: scroll of metric cards (net cashflow, income, spending, merchant revenue), each with a sparkline/bar chart for the active period. |  | renders→comp:analytics/ChartView; renders→comp:analytics/MetricCard |
+
+## logic
+
+| id | intent | slice | key out-edges |
+|---|---|---|---|
+| `act:detail/Export` | Invoke the export backend op to render a CSV/PDF, then hand the file to the OS share sheet. |  | guardedBy→assert:detail/SeriesLoaded; invokes→op:ExportReport; navigates→x-ext:share/ExportSheet |
+| `act:detail/LoadDetail` | Read the detailed breakdown series for the selected metric + active range. |  | — |
+| `act:filter/ApplyAndClose` | G15 save-and-close: commit the draft filter to the FilterStore, kick the re-aggregation pipeline, emit analytics, and dismiss the sheet. |  | dismisses→screen:analytics/FilterPeriod; guardedBy→assert:filter/RangeValid; guardedBy→assert:filter/RawDataAvailable; invokes→stage:agg/Normalize; writes→store:FilterStore |
+| `act:filter/Cancel` | Dismiss the filter sheet, discarding the draft. |  | dismisses→screen:analytics/FilterPeriod |
+| `act:filter/UpdateDraft` | Write the chosen period/granularity into the draft filter view-state as the user picks. |  | — |
+| `act:overview/GoToDetail` | Push the metric-detail drill-down for the tapped card. |  | guardedBy→assert:overview/CardSeriesReady; navigates→screen:analytics/MetricDetail |
+| `act:overview/LoadCharts` | Read the aggregated chart-series for the active filter range (cached-first on appear). |  | guardedBy→assert:overview/FilterApplied |
+| `act:overview/PresentFilter` | Present the filter-by-period sheet. |  | navigates→screen:analytics/FilterPeriod |
+| `act:overview/RefreshCharts` | Force-fresh re-read of chart-series on pull-to-refresh. |  | guardedBy→assert:overview/RefreshNotInFlight |
+| `assert:detail/SeriesLoaded` | The drill-down detail series has finished loading with a non-error, non-empty result before an export can be requested. |  | — |
+| `assert:filter/RangeValid` | The draft filter range is well-formed (start <= end, supported granularity) before Apply can commit. |  | — |
+| `assert:filter/RawDataAvailable` | The locally cached raw transactions are present (an initial ledger sync has completed) before committing a filter kicks the re-aggregation pipeline. |  | — |
+| `assert:overview/CardSeriesReady` | The tapped metric card's chart series is present (its load completed non-error) before drilling into the metric-detail screen. |  | — |
+| `assert:overview/FilterApplied` | An applied filter (period kind + active range) exists in FilterStore before the chart-series query can be scoped and run on appear. |  | — |
+| `assert:overview/RefreshNotInFlight` | No chart refresh is already in flight (the chart-load phase is not 'loading') before a new force-fresh pull-to-refresh re-read is kicked off. |  | — |
+| `trig:detail/Appear` | Metric-detail screen appears. |  | — |
+| `trig:detail/ExportTap` | User taps the export/download button on the detail screen. |  | — |
+| `trig:filter/ApplyTap` | User taps 'Done/Apply' in the filter sheet. |  | — |
+| `trig:filter/CancelTap` | User taps the X to dismiss the filter sheet without applying. |  | — |
+| `trig:filter/SegmentChange` | User changes weekly/monthly/yearly or the picker value in the filter sheet. |  | — |
+| `trig:overview/Appear` | Overview screen appears (initial load + return). |  | — |
+| `trig:overview/CardTap` | User taps a metric card to drill in. |  | — |
+| `trig:overview/FilterTap` | User taps the filter/period chip in the header. |  | — |
+| `trig:overview/PullToRefresh` | User pulls to refresh the overview. |  | — |
+| `vs:detail/Load` | Loading/empty/error state for the drill-down detail series. |  | — |
+| `vs:filter/Draft` | Ephemeral draft filter selection in the sheet (period kind + range), not yet applied. |  | — |
+| `vs:overview/ChartLoad` | Loading/empty/error state for the metric charts before the chart-series store is populated. |  | — |
+
+## substrate
+
+| id | intent | slice | key out-edges |
+|---|---|---|---|
+| `fx:analytics/ExportShared` | Analytics event when an export is successfully shared. |  | — |
+| `fx:analytics/FilterApplied` | Analytics event when a filter is applied (period kind, range). |  | — |
+| `fx:toast/ExportFailed` | Toast shown when the export share fails. |  | — |
+| `op:ExportReport` | Render the export file (CSV/PDF) for the active metric + filter range. |  | produces→store:DetailSeriesStore |
+| `op:SyncLedger` | Backend sync that pulls fresh transactions into RawTxnStore. |  | produces→store:RawTxnStore |
+| `src:LedgerAPI` | Remote ledger/transactions API; origin of raw transaction sync. |  | — |
+| `stage:agg/Aggregate` | Fold normalized buckets into per-period aggregates (sum/avg/delta) — fan-in over the filter range. |  | produces→store:AggregateStore; x-pipeline:feeds→stage:agg/Series |
+| `stage:agg/Normalize` | Normalize/bucket raw transactions into the filter's granularity (deterministic). |  | x-pipeline:feeds→stage:agg/Aggregate |
+| `stage:agg/Series` | Project aggregates into render-ready chart series per metric (deterministic). |  | produces→store:ChartSeriesStore |
+| `store:AggregateStore` | Per-bucket aggregates (sum/avg/delta per period bucket) for the active filter range. |  | — |
+| `store:ChartSeriesStore` | Render-ready chart series (points/bars per metric) bound by the chart components. |  | — |
+| `store:DetailSeriesStore` | Detailed per-category breakdown series for the drilled-in metric. |  | — |
+| `store:FilterStore` | Applied analytics filter (period kind + range), source of truth that drives every chart re-query. |  | — |
+| `store:RawTxnStore` | Locally cached raw transactions/ledger rows synced from the backend; the pipeline's raw input. |  | — |
+
+## boundary
+
+| id | intent | slice | key out-edges |
+|---|---|---|---|
+| `x-ext:share/ExportSheet` | OS share sheet handed the rendered export file; control leaves the app and returns with an outcome. |  | — |

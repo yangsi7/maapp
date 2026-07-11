@@ -1,0 +1,66 @@
+# maapp-gate.yml — PR gate for a consumer repo that keeps a maapp app-structure
+# graph as agent structural memory. Copy to .github/workflows/maapp-gate.yml.
+#
+# Philosophy: FAIL-CLOSED — only CI is authoritative. The gate
+# runs on every PR: `check-drift` itself is the "did an anchored path change?"
+# detector (it diffs meta.provenance.asOf..HEAD inside the checkout), so a
+# static `paths:` filter cannot under-trigger it. If this repo is huge and the
+# gate must be scoped, add a `paths:` filter covering the graph file AND every
+# anchored source tree — and accept that an under-scoped filter silently skips
+# the gate (the failure mode this template avoids by default).
+#
+# CLI contract (LIFECYCLE-VERBS-SPEC §1/§3):
+#   maapp validate <graph> [--json]              exit 0 clean, 1 on E_* errors, 2 load/usage error
+#   maapp check-drift <graph> --repo <repo>      exit 0 fresh, 1 drift, 2 error
+#   maapp query orphans <graph>                  advisory reachability report
+#   maapp stamp <graph> --repo <repo>            re-pin meta.provenance.asOf after updating nodes
+
+name: maapp gate
+
+on:
+  pull_request:
+
+env:
+  # Graph location convention (shared with the drift-nudge hook + routing patch):
+  # $MAAPP_GRAPH if set, else .maapp/graph.json at the repo root.
+  MAAPP_GRAPH: .maapp/graph.json
+
+jobs:
+  maapp-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # check-drift resolves meta.provenance.asOf..HEAD: the asOf commit
+          # must be reachable, so fetch full history (shallow clones exit 2).
+          fetch-depth: 0
+
+      - name: Install maapp
+        run: |
+          # TODO(release): pin the real release URL + sha256 once maapp publishes
+          # binaries. Verify by CONTENT (checksum), never by proxy (HTTP 200 / size):
+          #
+          #   curl -fsSL -o maapp \
+          #     https://github.com/yangsi7/maapp/releases/download/vX.Y.Z/maapp-x86_64-unknown-linux-gnu
+          #   echo "<sha256>  maapp" | sha256sum -c -
+          #   chmod +x maapp && sudo mv maapp /usr/local/bin/maapp
+          #   maapp --version
+          #
+          # Fail-closed: an unconfigured install FAILS the gate rather than
+          # letting an un-checked PR through looking green.
+          echo "::error::maapp install step not configured — fill in the TODO in .github/workflows/maapp-gate.yml"
+          exit 1
+
+      - name: Validate graph (hard gate — fail on any E_* finding)
+        run: maapp validate "$MAAPP_GRAPH"
+
+      - name: Check drift (hard gate — fail on stale / unmapped / rotted anchors)
+        # Exit 1 = drift: the PR touched anchored paths (stale candidates),
+        # grew reality the graph has no eyes on (unmapped changes), or broke
+        # anchors (rot). Fix: update the touched nodes, re-validate, then
+        # `maapp stamp "$MAAPP_GRAPH" --repo .` and commit the stamped graph.
+        run: maapp check-drift "$MAAPP_GRAPH" --repo .
+
+      - name: Orphan report (advisory only — never fails the gate)
+        continue-on-error: true
+        run: maapp query orphans "$MAAPP_GRAPH"

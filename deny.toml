@@ -1,0 +1,34 @@
+# cargo-deny config — the supply-chain gate (RES-001 §3). Load-bearing for the future-MIT
+# public release (D-004): proves every transitive dep is license-compatible at CI time.
+# Schema: https://embarkstudios.github.io/cargo-deny/
+
+[advisories]
+# RustSec advisory DB. Unmaintained/unsound are warnings; vulnerabilities fail.
+yanked = "deny"
+# ignore = []  # add "RUSTSEC-XXXX-YYYY # reason + date" only for an unavoidable advisory
+
+[licenses]
+# Permissive-only, to keep the eventual MIT release contaminant-free. A GPL/AGPL dep
+# entering the lockfile fails CI the moment it appears.
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Unicode-3.0",
+  "Zlib",
+]
+confidence-threshold = 0.9
+
+[bans]
+# Catch duplicate-version bloat in the single-binary artifact.
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+# Only crates.io by default; an unexpected git/registry source fails.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

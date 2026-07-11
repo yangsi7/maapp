@@ -1,0 +1,17 @@
+---
+source: tests/query.rs
+expression: rs
+---
+{
+  "id": "store:QueueStore",
+  "dependents": [
+    "act:detail/PlayPlaylist",
+    "act:detail/PlayTrack",
+    "act:player/SkipNext",
+    "act:queue/RemoveTrack",
+    "act:queue/ReorderTrack",
+    "assert:queue/HasNext",
+    "screen:player/Queue"
+  ],
+  "dependencies": []
+}

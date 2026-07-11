@@ -1,0 +1,123 @@
+---
+source: tests/render.rs
+expression: "render_out(&[\"hub\", \"examples/chat.json\"])"
+---
+# App-Spec Graph — BLUEPRINT hub (generated; do NOT hand-edit)
+
+> schema `chat-graph` v`1.3` · 96 nodes · 135 edges. Regenerate with `graph render hub`.
+
+## surface
+
+| id | intent | slice | key out-edges |
+|---|---|---|---|
+| `comp:chat/ComposeBar` | Text field + attachment button + send button. |  | — |
+| `comp:chat/ConversationRow` | One inbox row: avatar, name, last-message preview, unread dot. |  | — |
+| `comp:chat/MessageBubble` | One message; shows sending/sent/failed status from its message record. |  | — |
+| `comp:chat/MessageList` | Scrollable message bubbles bound to the thread store; reflects optimistic + reconciled state. |  | — |
+| `comp:chat/TypingIndicator` | Animated dots when the peer is typing; bound to a transient view state. |  | — |
+| `screen:chat/ConversationInfo` | Conversation/group details: participants, shared media, and mute/notification settings (display + settings surface). |  | — |
+| `screen:chat/ConversationList` | Inbox: all conversations, newest-active first; unread badges. |  | renders→comp:chat/ConversationRow |
+| `screen:chat/MediaViewer` | Fullscreen image/media lightbox for a tapped image message or shared-media thumbnail. |  | — |
+| `screen:chat/NewConversation` | New-message recipient picker: choose contact(s) to start or open a conversation; entry to group creation. |  | — |
+| `screen:chat/NewGroup` | Create a group: name it, pick participants, then open the new group thread. |  | — |
+| `screen:chat/Profile` | A participant's contact/profile card, reached from the participant list. |  | — |
+| `screen:chat/Search` | Search across conversations and messages from the inbox; tap a result to open its thread. |  | — |
+| `screen:chat/Settings` | App settings: account, notifications, privacy. |  | — |
+| `screen:chat/SharedMedia` | Grid of all images/attachments shared in the conversation; tap a thumbnail to open the viewer. |  | — |
+| `screen:chat/Thread` | One conversation: message log + compose bar; optimistic send + realtime inbound land here. |  | renders→comp:chat/ComposeBar; renders→comp:chat/MessageBubble; renders→comp:chat/MessageList; renders→comp:chat/TypingIndicator |
+
+## logic
+
+| id | intent | slice | key out-edges |
+|---|---|---|---|
+| `act:info/GoBack` | Pop conversation info back to the thread. |  | dismisses→screen:chat/ConversationInfo |
+| `act:info/OpenProfile` | Push the tapped participant's profile. |  | navigates→screen:chat/Profile |
+| `act:info/OpenSharedMedia` | Push the shared-media grid. |  | navigates→screen:chat/SharedMedia |
+| `act:list/OpenNewConversation` | Push the new-conversation recipient picker. |  | navigates→screen:chat/NewConversation |
+| `act:list/OpenSearch` | Push the search screen. |  | navigates→screen:chat/Search |
+| `act:list/OpenSettings` | Push the settings screen. |  | navigates→screen:chat/Settings |
+| `act:list/OpenThread` | Push the tapped conversation's thread. |  | navigates→screen:chat/Thread |
+| `act:list/StartCompose` | Create a draft conversation AND open its thread (save-and-advance, G15). |  | navigates→screen:chat/Thread; writes→store:ConversationStore |
+| `act:newconv/GoBack` | Dismiss the recipient picker back to the inbox. |  | dismisses→screen:chat/NewConversation |
+| `act:newconv/OpenNewGroup` | Push the group-creation screen. |  | navigates→screen:chat/NewGroup |
+| `act:newconv/StartThread` | Open the chosen recipient's thread. |  | navigates→screen:chat/Thread |
+| `act:newgroup/CreateGroup` | Create the group conversation and open its thread (save-and-advance). |  | navigates→screen:chat/Thread; writes→store:ConversationStore |
+| `act:newgroup/GoBack` | Dismiss group creation back to the recipient picker. |  | dismisses→screen:chat/NewGroup |
+| `act:profile/GoBack` | Pop the profile back to conversation info. |  | dismisses→screen:chat/Profile |
+| `act:search/GoBack` | Pop search back to the inbox. |  | dismisses→screen:chat/Search |
+| `act:search/OpenResult` | Push the tapped result's conversation thread. |  | navigates→screen:chat/Thread |
+| `act:settings/GoBack` | Dismiss settings back to the inbox. |  | dismisses→screen:chat/Settings |
+| `act:shared/GoBack` | Pop shared media back to conversation info. |  | dismisses→screen:chat/SharedMedia |
+| `act:shared/OpenMedia` | Present the tapped thumbnail fullscreen in the media viewer. |  | navigates→screen:chat/MediaViewer |
+| `act:thread/EditDraft` | Write the typed text + validity into local compose view state. |  | — |
+| `act:thread/GoBack` | Pop the thread back to the inbox. |  | dismisses→screen:chat/Thread |
+| `act:thread/IngestInbound` | Hand the arrived realtime payload to the ingest stage. |  | guardedBy→assert:thread/SubscriptionActive; invokes→stage:rt/Ingest; writes→store:InboundBuffer |
+| `act:thread/OpenInfo` | Push the conversation/group info screen. |  | navigates→screen:chat/ConversationInfo |
+| `act:thread/OpenMedia` | Present the tapped image fullscreen in the media viewer. |  | navigates→screen:chat/MediaViewer |
+| `act:thread/PresentPicker` | Present the OS photo/attachment picker. |  | navigates→x-ext:pick/AttachmentSheet |
+| `act:thread/RetrySend` | Re-flip a failed message back to sending and re-invoke the send op (idempotent on the client-message id). |  | guardedBy→assert:thread/MessageFailed; invokes→op:chat/SendMessage; writes→store:ThreadStore |
+| `act:thread/SendMessage` | Optimistically append the message, invoke the send backend op, emit a haptic (guarded by non-empty draft). |  | guardedBy→assert:thread/DraftSendable; invokes→op:chat/SendMessage; invokes→op:chat/UploadAttachment; writes→store:ThreadStore |
+| `act:thread/Subscribe` | Subscribe to the realtime channel and load message history. |  | guardedBy→assert:thread/ConversationResolved; invokes→stage:rt/Ingest |
+| `act:viewer/GoBack` | Dismiss the media viewer back to its opener. |  | dismisses→screen:chat/MediaViewer |
+| `assert:thread/AttachmentValid` | The picked attachment passes type and size limits before the upload op runs. |  | — |
+| `assert:thread/Connected` | The connection is up (realtime/network reachable) before the send op is attempted; offline blocks/queues the POST. |  | — |
+| `assert:thread/ConversationResolved` | The conversation is resolved/known before subscribing to its channel and loading its history. |  | — |
+| `assert:thread/DraftSendable` | Draft has non-empty text or an attachment, and no send is already in flight. |  | — |
+| `assert:thread/MessageFailed` | The target message record is currently in the failed state; retry is only valid on a send that has actually failed. |  | — |
+| `assert:thread/SubscriptionActive` | A realtime subscription/channel is active before an inbound frame is ingested; orphan frames off a dead socket are dropped. |  | — |
+| `trig:info/Back` | User taps back from conversation info. |  | — |
+| `trig:info/MediaTap` | User taps the shared-media section to see all media. |  | — |
+| `trig:info/ParticipantTap` | User taps a participant in the conversation info. |  | — |
+| `trig:list/ComposeTap` | User taps the new-message compose button. |  | — |
+| `trig:list/NewMessageTap` | User taps the new-message / compose entry to pick a recipient. |  | — |
+| `trig:list/RowTap` | User taps a conversation row. |  | — |
+| `trig:list/SearchTap` | User taps the search field in the inbox. |  | — |
+| `trig:list/SettingsTap` | User taps settings from the inbox. |  | — |
+| `trig:newconv/Cancel` | User cancels the recipient picker. |  | — |
+| `trig:newconv/NewGroupTap` | User taps new-group to create a group. |  | — |
+| `trig:newconv/RecipientTap` | User taps a contact to start/open a 1:1 conversation. |  | — |
+| `trig:newgroup/Back` | User taps back from group creation. |  | — |
+| `trig:newgroup/CreateTap` | User confirms group name + participants. |  | — |
+| `trig:profile/Back` | User taps back from a profile. |  | — |
+| `trig:search/Back` | User taps back from search. |  | — |
+| `trig:search/ResultTap` | User taps a search result row. |  | — |
+| `trig:settings/Back` | User taps back from settings. |  | — |
+| `trig:shared/Back` | User taps back from shared media. |  | — |
+| `trig:shared/ThumbTap` | User taps a media thumbnail in the shared-media grid. |  | — |
+| `trig:thread/Appear` | Thread appears; subscribe to realtime + load history. |  | — |
+| `trig:thread/AttachTap` | User taps the attachment button. |  | — |
+| `trig:thread/Back` | User taps back from the thread. |  | — |
+| `trig:thread/InboundArrive` | A realtime inbound message arrives over the socket. |  | — |
+| `trig:thread/MediaTap` | User taps an image attachment in a message bubble. |  | — |
+| `trig:thread/RetryTap` | User taps retry on a failed message bubble. |  | — |
+| `trig:thread/SendTap` | User taps send. |  | — |
+| `trig:thread/TextChange` | User edits the compose text field. |  | — |
+| `trig:thread/TitleTap` | User taps the conversation title/header in the thread. |  | — |
+| `trig:viewer/Back` | User taps close (or drags down) to dismiss the media viewer. |  | — |
+| `vs:thread/Compose` | Local compose state: draft text, attachment token, send-in-flight flag. |  | — |
+| `vs:thread/HistoryLoad` | Empty/loading/error state for the message list before history + realtime hydrate. |  | — |
+| `vs:thread/Typing` | Peer-typing transient state driven by realtime presence events. |  | — |
+
+## substrate
+
+| id | intent | slice | key out-edges |
+|---|---|---|---|
+| `ds:realtime/Socket` | Realtime websocket: inbound message + presence/typing fan-in origin. |  | — |
+| `fx:analytics/AttachmentPicked` | Analytics: attachment_picked. |  | — |
+| `fx:analytics/MessageSent` | Analytics: message_sent. |  | — |
+| `fx:haptic/Send` | Light haptic tap on send. |  | — |
+| `op:chat/SendMessage` | POST the message to the server; confirms or fails the optimistic record. |  | guardedBy→assert:thread/Connected |
+| `op:chat/UploadAttachment` | Upload the picked attachment and return a media token. |  | guardedBy→assert:thread/AttachmentValid; produces→store:ThreadStore |
+| `stage:rt/Ingest` | Realtime inbound ingest: dedup, order, and reconcile inbound frames into the thread store. |  | produces→store:ThreadStore |
+| `store:ContactsStore` | Contacts / known users directory: backs profile cards and the recipient picker. |  | — |
+| `store:ConversationStore` | Conversation list: participants, last-message preview, unread counts. |  | — |
+| `store:CurrentUserStore` | Signed-in user account and session/profile. |  | — |
+| `store:InboundBuffer` | Raw realtime inbound frames staged off the socket before dedup/ordering. |  | — |
+| `store:NotificationSettingsStore` | Per-conversation mute / notification preferences. |  | — |
+| `store:ThreadStore` | Source of truth for messages in the open thread; holds optimistic + confirmed records keyed by client-message id. |  | — |
+
+## boundary
+
+| id | intent | slice | key out-edges |
+|---|---|---|---|
+| `x-ext:pick/AttachmentSheet` | OS photo/file picker handoff; returns a picked asset or cancels. |  | — |

@@ -1,0 +1,630 @@
+{
+  "schema": "maapp-graph",
+  "version": "1.3",
+  "nodeKindRegistry": {
+    "x-ext:ExternalSurface": { "layer": "boundary", "intent": "An OS-level or external surface outside the app (browser redirect, 3rd-party hosted page)." }
+  },
+  "edgeRegistry": {},
+  "nodeKinds": {
+    "surface": ["Screen", "Component", "NavContainer"],
+    "logic": ["Trigger", "NavAction", "MutationAction", "EffectAction", "ViewStateAction", "QueryAction", "ViewState", "Assertion"],
+    "substrate": ["StateStore", "DataSource", "BackendOp", "PipelineStage", "SideEffect"],
+    "policy": ["Policy"],
+    "boundary": ["x-ext:ExternalSurface", "x-ext:PermissionGate"]
+  },
+  "nodes": {
+    "surface": {
+      "screen:checkout/ProtectedShell": {
+        "kind": "Screen",
+        "intent": "(protected) route-group layout shell; enforces auth; all checkout and order routes render inside it.",
+        "refs": {},
+        "attrs": { "surface": "layout" }
+      },
+      "screen:listing/Detail": {
+        "kind": "Screen",
+        "intent": "Public listing detail for one listing (route param :id); shows price, seller, images, Buy CTA.",
+        "refs": {},
+        "attrs": { "surface": "page" }
+      },
+      "screen:checkout/Form": {
+        "kind": "Screen",
+        "intent": "Buyer checkout: fulfillment selector, conditional shipping address form, order summary, place-order submit.",
+        "refs": {},
+        "attrs": { "surface": "page" }
+      },
+      "screen:checkout/Success": {
+        "kind": "Screen",
+        "intent": "Post-payment success; resolves order via ?session_id (Stripe paid path) or ?order_id (free-item path); shows next steps.",
+        "refs": {},
+        "attrs": { "surface": "page" }
+      },
+      "screen:orders/List": {
+        "kind": "Screen",
+        "intent": "User's orders list with tabs: all / purchases / sales / events.",
+        "refs": {},
+        "attrs": { "surface": "page" }
+      },
+      "screen:orders/Detail": {
+        "kind": "Screen",
+        "intent": "Full order detail: status timeline, shipping info, cancellation flow, dispute, review actions.",
+        "refs": {},
+        "attrs": { "surface": "page" }
+      },
+      "comp:checkout/FulfillmentSelector": {
+        "kind": "Component",
+        "intent": "Radio card group: pickup (free, seller location) vs shipping (live DHL cost); change triggers quote fetch.",
+        "refs": {}
+      },
+      "comp:checkout/ShippingAddressForm": {
+        "kind": "Component",
+        "intent": "Zod-validated address fields (name, street, houseNumber, city, zip, country=DE); rendered only when shipping is selected.",
+        "refs": {}
+      },
+      "comp:checkout/OrderSummary": {
+        "kind": "Component",
+        "intent": "Price breakdown: item price, shipping cost (with carrier label), total; driven by live quote and fulfillment state.",
+        "refs": {}
+      }
+    },
+    "logic": {
+      "vs:checkout/FormState": {
+        "kind": "ViewState",
+        "intent": "Checkout form ephemeral state: fulfillmentType, liveQuote, quoteLoading, isSubmitting, error.",
+        "refs": {}
+      },
+      "vs:orders/TabState": {
+        "kind": "ViewState",
+        "intent": "Orders list active tab selection: all | purchases | sales | events.",
+        "refs": {}
+      },
+      "trig:listing/BuyTap": {
+        "kind": "Trigger",
+        "intent": "Tap Buy / Checkout CTA on listing detail page.",
+        "refs": {}
+      },
+      "trig:checkout/FormAppear": {
+        "kind": "Trigger",
+        "intent": "Checkout form mounts; loads listing data and validates session.",
+        "refs": {}
+      },
+      "trig:checkout/FulfillmentChange": {
+        "kind": "Trigger",
+        "intent": "User switches fulfillment radio between pickup and shipping.",
+        "refs": {}
+      },
+      "trig:checkout/AddressChange": {
+        "kind": "Trigger",
+        "intent": "Zip, city, or country field changes; triggers live DHL quote fetch when shipping is selected.",
+        "refs": {}
+      },
+      "trig:checkout/Submit": {
+        "kind": "Trigger",
+        "intent": "User submits the checkout form (place order).",
+        "refs": {}
+      },
+      "trig:checkout/SuccessAppear": {
+        "kind": "Trigger",
+        "intent": "Success page mounts; reads session_id or order_id from URL query params.",
+        "refs": {}
+      },
+      "trig:orders/ListAppear": {
+        "kind": "Trigger",
+        "intent": "Orders list page mounts; loads orders for the active tab.",
+        "refs": {}
+      },
+      "trig:orders/TabChange": {
+        "kind": "Trigger",
+        "intent": "User switches orders tab (all / purchases / sales / events).",
+        "refs": {}
+      },
+      "trig:orders/RowTap": {
+        "kind": "Trigger",
+        "intent": "Tap an order row to navigate to order detail.",
+        "refs": {}
+      },
+      "trig:orders/DetailAppear": {
+        "kind": "Trigger",
+        "intent": "Order detail page mounts; loads full order record.",
+        "refs": {}
+      },
+      "trig:orders/ConfirmReceiptTap": {
+        "kind": "Trigger",
+        "intent": "Buyer taps Confirm Receipt button on order detail.",
+        "refs": {}
+      },
+      "trig:orders/CreateLabelTap": {
+        "kind": "Trigger",
+        "intent": "Seller taps Create Shipping Label on order detail.",
+        "refs": {}
+      },
+      "trig:orders/RequestCancelTap": {
+        "kind": "Trigger",
+        "intent": "Buyer or seller taps Request Cancellation on order detail.",
+        "refs": {}
+      },
+      "act:listing/GoToCheckout": {
+        "kind": "NavAction",
+        "intent": "Push checkout form for this listing; pure nav, no mutation.",
+        "refs": {}
+      },
+      "act:checkout/LoadListing": {
+        "kind": "MutationAction",
+        "intent": "Load listing with seller profile from Supabase; sets listing state and validates seller payment capability.",
+        "refs": {}
+      },
+      "act:checkout/UpdateFulfillment": {
+        "kind": "ViewStateAction",
+        "intent": "Set fulfillmentType in checkout form state; resets address form schema when switching to pickup.",
+        "refs": {}
+      },
+      "act:checkout/RequestQuote": {
+        "kind": "MutationAction",
+        "intent": "POST /api/shipping/quote for live DHL rate; fires when zip/city/country change and shipping is selected.",
+        "refs": {}
+      },
+      "act:checkout/PlaceOrder": {
+        "kind": "MutationAction",
+        "intent": "POST /api/stripe/create-checkout; reserves listing, then either redirects to Stripe (paid) or pushes to success (free).",
+        "refs": {}
+      },
+      "act:checkout/LoadOrder": {
+        "kind": "QueryAction",
+        "intent": "Client-side Supabase query on success page: load order by session_id (with retry) or order_id (direct).",
+        "refs": {}
+      },
+      "act:checkout/TrackPurchase": {
+        "kind": "EffectAction",
+        "intent": "Fire trackEvent(PURCHASE, { value, currency, transaction_id }) once after order loads on success page.",
+        "refs": {}
+      },
+      "act:orders/LoadOrders": {
+        "kind": "MutationAction",
+        "intent": "GET /api/orders; fetches orders + event bookings filtered by active tab (role / type).",
+        "refs": {}
+      },
+      "act:orders/SwitchTab": {
+        "kind": "ViewStateAction",
+        "intent": "Update active tab in orders list view state; triggers order reload.",
+        "refs": {}
+      },
+      "act:orders/GoToDetail": {
+        "kind": "NavAction",
+        "intent": "Push order detail page for the tapped order row.",
+        "refs": {}
+      },
+      "act:orders/LoadOrderDetail": {
+        "kind": "MutationAction",
+        "intent": "GET /api/orders/[id]; loads full order with buyer, seller, listing, reviews, disputes.",
+        "refs": {}
+      },
+      "act:orders/ConfirmReceipt": {
+        "kind": "MutationAction",
+        "intent": "PATCH /api/orders/[id]; buyer confirms receipt; transitions order to completed and releases escrow.",
+        "refs": {}
+      },
+      "act:orders/CreateLabel": {
+        "kind": "MutationAction",
+        "intent": "POST /api/shipping/label/[orderId]; creates Sendcloud v3 shipment, writes label URL and tracking, transitions order to shipped.",
+        "refs": {}
+      },
+      "act:orders/RequestCancel": {
+        "kind": "MutationAction",
+        "intent": "PATCH /api/orders/[id]; initiates cancellation request with deadline; buyer or seller initiated.",
+        "refs": {}
+      },
+      "assert:checkout/IsAuthenticated": {
+        "kind": "Assertion",
+        "intent": "Valid user session exists; gates all (protected) routes; failure redirects to /login.",
+        "refs": {}
+      },
+      "assert:checkout/SellerPaymentsEnabled": {
+        "kind": "Assertion",
+        "intent": "seller.stripe_charges_enabled is true; gates checkout initiation for this listing.",
+        "refs": {}
+      },
+      "assert:checkout/ListingIsActive": {
+        "kind": "Assertion",
+        "intent": "listing.status === 'active'; gates checkout and atomic reservation.",
+        "refs": {}
+      },
+      "assert:checkout/NotOwnListing": {
+        "kind": "Assertion",
+        "intent": "listing.seller_id !== user.id; prevents self-purchase.",
+        "refs": {}
+      },
+      "assert:checkout/IsFreeOrder": {
+        "kind": "Assertion",
+        "intent": "listing.price_cents === 0; determines checkout path (free direct-claim vs Stripe paid).",
+        "refs": {}
+      },
+      "assert:checkout/ShippingAddressValid": {
+        "kind": "Assertion",
+        "intent": "Shipping address form passes zod shippingAddressSchema (name, street, houseNumber, city, 5-digit zip); required when fulfillmentType=shipping.",
+        "refs": {}
+      },
+      "assert:checkout/RequestBodyValid": {
+        "kind": "Assertion",
+        "intent": "POST /api/stripe/create-checkout request body passes zod checkoutRequestSchema including client_nonce UUID.",
+        "refs": {}
+      },
+      "assert:checkout/RateLimitOk": {
+        "kind": "Assertion",
+        "intent": "Rate limit: ≤10 requests/min per user+IP on the create-checkout endpoint.",
+        "refs": {}
+      },
+      "assert:checkout/ListingNotReserved": {
+        "kind": "Assertion",
+        "intent": "listing.status !== 'reserved'; CAS guard preventing double-purchase race condition.",
+        "refs": {}
+      },
+      "assert:orders/OrderIsPaid": {
+        "kind": "Assertion",
+        "intent": "order.status === 'paid'; gates shipping label creation (not already shipped/cancelled/refunded).",
+        "refs": {}
+      },
+      "assert:orders/IsSeller": {
+        "kind": "Assertion",
+        "intent": "user_role === 'seller' on this order; gates seller-only actions: create label, respond to cancellation.",
+        "refs": {}
+      },
+      "assert:orders/IsBuyer": {
+        "kind": "Assertion",
+        "intent": "user_role === 'buyer' on this order; gates buyer-only actions: confirm receipt, open dispute.",
+        "refs": {}
+      },
+      "assert:orders/NoCancelPending": {
+        "kind": "Assertion",
+        "intent": "No active cancellation_request_status on order; gates label creation and some seller actions.",
+        "refs": {}
+      },
+      "assert:orders/FulfillmentIsShipping": {
+        "kind": "Assertion",
+        "intent": "order.fulfillment_type === 'shipping'; gates shipping label creation (not applicable to pickup orders).",
+        "refs": {}
+      },
+      "assert:webhook/SigValid": {
+        "kind": "Assertion",
+        "intent": "Stripe webhook signature verified against STRIPE_WEBHOOK_SECRET (dual-secret: platform + Connect).",
+        "refs": {}
+      },
+      "assert:webhook/NotDuplicate": {
+        "kind": "Assertion",
+        "intent": "No existing orders for this stripe_checkout_session_id; idempotency guard against concurrent webhook delivery. SELECT pre-check is non-atomic; DB unique constraints (orders_unique_pi_listing/_session_listing/_free_listing) are the atomic backstop — a 23505 on any of them is an idempotent no-op (skip refund AND listing release), never a refund.",
+        "refs": {}
+      }
+    },
+    "substrate": {
+      "store:listing/ListingStore": {
+        "kind": "StateStore",
+        "intent": "Loaded listing record with seller profile, price, fulfillment_type options, and stripe_charges_enabled flag.",
+        "refs": {}
+      },
+      "store:checkout/QuoteStore": {
+        "kind": "StateStore",
+        "intent": "Live DHL shipping quote: { optionCode, priceCents, currency } or null; display-only, re-quoted server-side at payment.",
+        "refs": {}
+      },
+      "store:orders/OrderStore": {
+        "kind": "StateStore",
+        "intent": "Single order record: status, fulfillment_type, all financial columns, shipping columns, buyer, seller, listing.",
+        "refs": {}
+      },
+      "store:orders/OrdersListStore": {
+        "kind": "StateStore",
+        "intent": "User's orders list (marketplace orders + event bookings) filtered by active tab and user role.",
+        "refs": {}
+      },
+      "ds:supabase/AuthSession": {
+        "kind": "DataSource",
+        "intent": "Supabase auth session; source of current user identity and session token.",
+        "refs": {}
+      },
+      "ds:supabase/Listings": {
+        "kind": "DataSource",
+        "intent": "Supabase listings table; source of listing records, status, price, dimensions, and seller references.",
+        "refs": {}
+      },
+      "ds:supabase/Orders": {
+        "kind": "DataSource",
+        "intent": "Supabase orders table; canonical order records with financial, shipping, status, and payment columns.",
+        "refs": {}
+      },
+      "ds:supabase/Transactions": {
+        "kind": "DataSource",
+        "intent": "Supabase transactions table; payment ledger entries created per order.",
+        "refs": {}
+      },
+      "ds:supabase/Conversations": {
+        "kind": "DataSource",
+        "intent": "Supabase conversations table; buyer-seller chat thread created on order confirmation.",
+        "refs": {}
+      },
+      "ds:stripe/SigningSecret": {
+        "kind": "DataSource",
+        "intent": "Stripe webhook signing secret (STRIPE_WEBHOOK_SECRET env var); used for request signature verification.",
+        "refs": {}
+      },
+      "ds:sendcloud/ShippingAPI": {
+        "kind": "DataSource",
+        "intent": "Sendcloud v3 shipping API; live DHL rate quotes and shipment creation.",
+        "refs": {}
+      },
+      "op:checkout/LoadListing": {
+        "kind": "BackendOp",
+        "intent": "Supabase select listing joined with seller profile; checks status=active and stripe_charges_enabled.",
+        "refs": {}
+      },
+      "op:checkout/FetchShippingOptions": {
+        "kind": "BackendOp",
+        "intent": "POST /api/shipping/quote; calls Sendcloud fetchShippingOptions() for DE destination; returns cheapest DHL option or null with reason.",
+        "refs": {}
+      },
+      "op:checkout/ReserveListing": {
+        "kind": "BackendOp",
+        "intent": "Atomic UPDATE listings.status → 'reserved'; CAS guard preventing double-purchase; returns 409 if already reserved.",
+        "refs": {}
+      },
+      "op:checkout/CreateStripeSession": {
+        "kind": "BackendOp",
+        "intent": "Stripe Checkout Session creation: EUR line items (item + shipping), full order metadata, idempotency key from client_nonce (FR-034).",
+        "refs": {}
+      },
+      "op:checkout/CreateFreeOrder": {
+        "kind": "BackendOp",
+        "intent": "Direct INSERT orders + INSERT transactions + UPDATE listing→sold for price_cents=0 items; skips Stripe; returns success URL.",
+        "refs": {}
+      },
+      "op:orders/FetchOrders": {
+        "kind": "BackendOp",
+        "intent": "GET /api/orders; queries Supabase for user's marketplace orders and event bookings; filtered by role and type.",
+        "refs": {}
+      },
+      "op:orders/FetchOrderDetail": {
+        "kind": "BackendOp",
+        "intent": "GET /api/orders/[id]; loads full order with all joins: buyer profile, seller profile, listing, reviews, disputes.",
+        "refs": {}
+      },
+      "op:orders/ConfirmReceiptOp": {
+        "kind": "BackendOp",
+        "intent": "PATCH /api/orders/[id]; transitions order.status → 'completed'; triggers escrow payout release to seller.",
+        "refs": {}
+      },
+      "op:orders/CreateShippingLabel": {
+        "kind": "BackendOp",
+        "intent": "POST /api/shipping/label/[orderId]; creates Sendcloud v3 shipment; writes label URL, tracking number, carrier; transitions order → 'shipped'; sets auto_release_at +14d.",
+        "refs": {}
+      },
+      "op:orders/RequestCancelOp": {
+        "kind": "BackendOp",
+        "intent": "PATCH /api/orders/[id]; sets cancellation_request_status and cancellation_request_deadline.",
+        "refs": {}
+      },
+      "op:webhook/HandleStripeEvent": {
+        "kind": "BackendOp",
+        "intent": "POST /api/webhooks/stripe; handles checkout.session.completed and charge.refunded; system-initiated (no user trigger); creates orders, transactions, conversations; fires notifications.",
+        "refs": {}
+      },
+      "op:webhook/CreateOrder": {
+        "kind": "BackendOp",
+        "intent": "INSERT orders row from Stripe session metadata; sets status=paid, captures all financial columns, stripe_checkout_session_id, stripe_payment_intent_id, stripe_charge_id (PI latest_charge resolved once, best-effort; NULL fallback re-retrieves at payout), escrow payment_model.",
+        "refs": {}
+      },
+      "op:webhook/MarkListingSold": {
+        "kind": "BackendOp",
+        "intent": "UPDATE listings.status → 'sold'; runs per order item on webhook completion.",
+        "refs": {}
+      },
+      "op:webhook/CreateConversation": {
+        "kind": "BackendOp",
+        "intent": "INSERT conversations row for buyer-seller messaging thread; created on order confirmation.",
+        "refs": {}
+      },
+      "op:webhook/HandleChargeRefunded": {
+        "kind": "BackendOp",
+        "intent": "charge.refunded settle point (incl. out-of-band Stripe Dashboard refunds); marks all orders for the payment intent refunded with proportional multi-order allocation; voids any minted Sendcloud parcel.",
+        "refs": {}
+      },
+      "op:webhook/VoidSendcloudParcel": {
+        "kind": "BackendOp",
+        "intent": "Cancel the Sendcloud parcel of a refunded labelled order so the platform is not billed for a shipment that never goes out; idempotent + best-effort (no-op when unlabelled; failures never block the refund).",
+        "refs": {}
+      },
+      "fx:checkout/PurchaseTracked": {
+        "kind": "SideEffect",
+        "intent": "trackEvent(PURCHASE, { value, currency, transaction_id }); fires once on success page after order loads; deduped via hasTracked ref.",
+        "refs": {}
+      },
+      "fx:checkout/ListingCacheInvalidated": {
+        "kind": "SideEffect",
+        "intent": "revalidateTag('listings'); busts ISR-cached listing data after listing status change (reserved, sold).",
+        "refs": {}
+      },
+      "fx:order/BuyerConfirmationEmail": {
+        "kind": "SideEffect",
+        "intent": "orderConfirmationEmail sent to buyer on webhook checkout.session.completed.",
+        "refs": {}
+      },
+      "fx:order/SellerNewOrderEmail": {
+        "kind": "SideEffect",
+        "intent": "newOrderSellerEmail sent to seller on webhook checkout.session.completed.",
+        "refs": {}
+      },
+      "fx:order/BuyerShippedEmail": {
+        "kind": "SideEffect",
+        "intent": "orderShippedEmail sent to buyer when seller creates shipping label.",
+        "refs": {}
+      },
+      "fx:order/SellerLabelEmail": {
+        "kind": "SideEffect",
+        "intent": "shippingSubmittedEmail sent to seller confirming label creation.",
+        "refs": {}
+      },
+      "fx:order/BuyerInAppNotification": {
+        "kind": "SideEffect",
+        "intent": "In-app order_shipped notification to buyer; sent on label creation.",
+        "refs": {}
+      },
+      "fx:order/SellerInAppNotification": {
+        "kind": "SideEffect",
+        "intent": "In-app shipping_submitted notification to seller; sent on label creation.",
+        "refs": {}
+      },
+      "fx:webhook/CartItemsRemoved": {
+        "kind": "SideEffect",
+        "intent": "DELETE cart_items for purchased listings; cleanup on webhook checkout.session.completed.",
+        "refs": {}
+      }
+    },
+    "policy": {},
+    "boundary": {
+      "x-ext:checkout/StripeCheckout": {
+        "kind": "x-ext:ExternalSurface",
+        "intent": "Stripe-hosted checkout page; buyer completes payment outside the app; returns to /checkout/success via Stripe redirect URL.",
+        "refs": {}
+      }
+    }
+  },
+  "edges": [
+    { "type": "renders", "from": "screen:checkout/Form", "to": "comp:checkout/FulfillmentSelector", "repeat": false },
+    { "type": "renders", "from": "screen:checkout/Form", "to": "comp:checkout/ShippingAddressForm", "repeat": false },
+    { "type": "renders", "from": "screen:checkout/Form", "to": "comp:checkout/OrderSummary", "repeat": false },
+
+    { "type": "handles", "from": "screen:listing/Detail", "to": "trig:listing/BuyTap", "event": "tap" },
+    { "type": "handles", "from": "screen:checkout/Form", "to": "trig:checkout/FormAppear", "event": "appear" },
+    { "type": "handles", "from": "screen:checkout/Form", "to": "trig:checkout/FulfillmentChange", "event": "change" },
+    { "type": "handles", "from": "screen:checkout/Form", "to": "trig:checkout/AddressChange", "event": "change" },
+    { "type": "handles", "from": "screen:checkout/Form", "to": "trig:checkout/Submit", "event": "submit" },
+    { "type": "handles", "from": "screen:checkout/Success", "to": "trig:checkout/SuccessAppear", "event": "appear" },
+    { "type": "handles", "from": "screen:orders/List", "to": "trig:orders/ListAppear", "event": "appear" },
+    { "type": "handles", "from": "screen:orders/List", "to": "trig:orders/TabChange", "event": "change" },
+    { "type": "handles", "from": "screen:orders/List", "to": "trig:orders/RowTap", "event": "tap" },
+    { "type": "handles", "from": "screen:orders/Detail", "to": "trig:orders/DetailAppear", "event": "appear" },
+    { "type": "handles", "from": "screen:orders/Detail", "to": "trig:orders/ConfirmReceiptTap", "event": "tap" },
+    { "type": "handles", "from": "screen:orders/Detail", "to": "trig:orders/CreateLabelTap", "event": "tap" },
+    { "type": "handles", "from": "screen:orders/Detail", "to": "trig:orders/RequestCancelTap", "event": "tap" },
+
+    { "type": "fires", "from": "trig:listing/BuyTap", "to": "act:listing/GoToCheckout", "seq": 0 },
+    { "type": "fires", "from": "trig:checkout/FormAppear", "to": "act:checkout/LoadListing", "seq": 0 },
+    { "type": "fires", "from": "trig:checkout/FulfillmentChange", "to": "act:checkout/UpdateFulfillment", "seq": 0 },
+    { "type": "fires", "from": "trig:checkout/AddressChange", "to": "act:checkout/RequestQuote", "seq": 0 },
+    { "type": "fires", "from": "trig:checkout/Submit", "to": "act:checkout/PlaceOrder", "seq": 0 },
+    { "type": "fires", "from": "trig:checkout/SuccessAppear", "to": "act:checkout/LoadOrder", "seq": 0 },
+    { "type": "fires", "from": "trig:checkout/SuccessAppear", "to": "act:checkout/TrackPurchase", "seq": 1 },
+    { "type": "fires", "from": "trig:orders/ListAppear", "to": "act:orders/LoadOrders", "seq": 0 },
+    { "type": "fires", "from": "trig:orders/TabChange", "to": "act:orders/SwitchTab", "seq": 0 },
+    { "type": "fires", "from": "trig:orders/RowTap", "to": "act:orders/GoToDetail", "seq": 0 },
+    { "type": "fires", "from": "trig:orders/DetailAppear", "to": "act:orders/LoadOrderDetail", "seq": 0 },
+    { "type": "fires", "from": "trig:orders/ConfirmReceiptTap", "to": "act:orders/ConfirmReceipt", "seq": 0 },
+    { "type": "fires", "from": "trig:orders/CreateLabelTap", "to": "act:orders/CreateLabel", "seq": 0 },
+    { "type": "fires", "from": "trig:orders/RequestCancelTap", "to": "act:orders/RequestCancel", "seq": 0 },
+
+    { "type": "navigates", "from": "act:listing/GoToCheckout", "to": "screen:checkout/Form", "present": "push" },
+    { "type": "navigates", "from": "act:checkout/PlaceOrder", "to": "screen:checkout/Success", "present": "push", "when": "assert:checkout/IsFreeOrder" },
+    { "type": "navigates", "from": "act:checkout/PlaceOrder", "to": "x-ext:checkout/StripeCheckout", "present": "replace-root", "when": "else" },
+    { "type": "navigates", "from": "act:orders/GoToDetail", "to": "screen:orders/Detail", "present": "push" },
+
+    { "type": "setsViewState", "from": "act:checkout/UpdateFulfillment", "to": "vs:checkout/FormState" },
+    { "type": "setsViewState", "from": "act:orders/SwitchTab", "to": "vs:orders/TabState" },
+
+    { "type": "reads", "from": "act:checkout/LoadOrder", "to": "ds:supabase/Orders", "cachePolicy": "fresh" },
+    { "type": "reads", "from": "op:checkout/LoadListing", "to": "ds:supabase/Listings", "cachePolicy": "fresh" },
+    { "type": "reads", "from": "op:checkout/FetchShippingOptions", "to": "ds:sendcloud/ShippingAPI", "cachePolicy": "fresh" },
+    { "type": "reads", "from": "op:orders/FetchOrders", "to": "ds:supabase/Orders", "cachePolicy": "fresh" },
+    { "type": "reads", "from": "op:orders/FetchOrderDetail", "to": "ds:supabase/Orders", "cachePolicy": "fresh" },
+    { "type": "reads", "from": "op:webhook/HandleChargeRefunded", "to": "ds:supabase/Orders", "cachePolicy": "fresh" },
+    { "type": "reads", "from": "op:webhook/HandleStripeEvent", "to": "ds:supabase/Orders", "cachePolicy": "fresh" },
+
+    { "type": "writes", "from": "op:checkout/ReserveListing", "to": "ds:supabase/Listings", "mode": "set", "optimistic": false, "idempotent": false },
+    { "type": "writes", "from": "op:checkout/CreateFreeOrder", "to": "ds:supabase/Orders", "mode": "append", "idempotent": false },
+    { "type": "writes", "from": "op:checkout/CreateFreeOrder", "to": "ds:supabase/Transactions", "mode": "append" },
+    { "type": "writes", "from": "op:checkout/CreateFreeOrder", "to": "ds:supabase/Listings", "mode": "set" },
+    { "type": "writes", "from": "op:webhook/CreateOrder", "to": "ds:supabase/Orders", "mode": "append", "idempotent": true },
+    { "type": "writes", "from": "op:webhook/HandleChargeRefunded", "to": "ds:supabase/Orders", "mode": "set", "idempotent": true },
+    { "type": "writes", "from": "op:webhook/VoidSendcloudParcel", "to": "ds:sendcloud/ShippingAPI", "mode": "delete", "idempotent": true },
+    { "type": "writes", "from": "op:webhook/CreateOrder", "to": "ds:supabase/Transactions", "mode": "append" },
+    { "type": "writes", "from": "op:webhook/MarkListingSold", "to": "ds:supabase/Listings", "mode": "set" },
+    { "type": "writes", "from": "op:webhook/CreateConversation", "to": "ds:supabase/Conversations", "mode": "append" },
+    { "type": "writes", "from": "op:orders/ConfirmReceiptOp", "to": "ds:supabase/Orders", "mode": "set" },
+    { "type": "writes", "from": "op:orders/CreateShippingLabel", "to": "ds:supabase/Orders", "mode": "set" },
+    { "type": "writes", "from": "op:orders/RequestCancelOp", "to": "ds:supabase/Orders", "mode": "set" },
+
+    { "type": "invokes", "from": "act:checkout/LoadListing", "to": "op:checkout/LoadListing", "awaits": true },
+    { "type": "invokes", "from": "act:checkout/RequestQuote", "to": "op:checkout/FetchShippingOptions", "awaits": true },
+    { "type": "invokes", "from": "act:checkout/PlaceOrder", "to": "op:checkout/ReserveListing", "awaits": true, "idempotent": true },
+    { "type": "invokes", "from": "act:checkout/PlaceOrder", "to": "op:checkout/CreateStripeSession", "awaits": true, "idempotent": true },
+    { "type": "invokes", "from": "act:checkout/PlaceOrder", "to": "op:checkout/CreateFreeOrder", "awaits": true, "idempotent": false },
+    { "type": "invokes", "from": "act:orders/LoadOrders", "to": "op:orders/FetchOrders", "awaits": true },
+    { "type": "invokes", "from": "act:orders/LoadOrderDetail", "to": "op:orders/FetchOrderDetail", "awaits": true },
+    { "type": "invokes", "from": "act:orders/ConfirmReceipt", "to": "op:orders/ConfirmReceiptOp", "awaits": true },
+    { "type": "invokes", "from": "act:orders/CreateLabel", "to": "op:orders/CreateShippingLabel", "awaits": true },
+    { "type": "invokes", "from": "act:orders/RequestCancel", "to": "op:orders/RequestCancelOp", "awaits": true },
+    { "type": "invokes", "from": "op:webhook/HandleChargeRefunded", "to": "op:webhook/VoidSendcloudParcel", "awaits": true, "idempotent": true },
+    { "type": "invokes", "from": "op:webhook/HandleStripeEvent", "to": "op:webhook/CreateOrder", "awaits": true, "idempotent": true },
+    { "type": "invokes", "from": "op:webhook/HandleStripeEvent", "to": "op:webhook/HandleChargeRefunded", "awaits": true, "idempotent": true },
+    { "type": "invokes", "from": "op:webhook/HandleStripeEvent", "to": "op:webhook/MarkListingSold", "awaits": true },
+    { "type": "invokes", "from": "op:webhook/HandleStripeEvent", "to": "op:webhook/CreateConversation", "awaits": true },
+
+    { "type": "produces", "from": "op:checkout/LoadListing", "to": "store:listing/ListingStore", "artifact": "listing" },
+    { "type": "produces", "from": "op:checkout/FetchShippingOptions", "to": "store:checkout/QuoteStore", "artifact": "shippingQuote" },
+    { "type": "produces", "from": "op:orders/FetchOrders", "to": "store:orders/OrdersListStore", "artifact": "ordersList" },
+    { "type": "produces", "from": "op:orders/FetchOrderDetail", "to": "store:orders/OrderStore", "artifact": "order" },
+
+    { "type": "binds", "from": "screen:checkout/Form", "to": "store:listing/ListingStore" },
+    { "type": "binds", "from": "screen:checkout/Form", "to": "vs:checkout/FormState" },
+    { "type": "binds", "from": "comp:checkout/FulfillmentSelector", "to": "vs:checkout/FormState" },
+    { "type": "binds", "from": "comp:checkout/ShippingAddressForm", "to": "vs:checkout/FormState" },
+    { "type": "binds", "from": "comp:checkout/OrderSummary", "to": "vs:checkout/FormState" },
+    { "type": "binds", "from": "comp:checkout/OrderSummary", "to": "store:checkout/QuoteStore" },
+    { "type": "binds", "from": "screen:checkout/Success", "to": "store:orders/OrderStore" },
+    { "type": "binds", "from": "screen:orders/List", "to": "store:orders/OrdersListStore" },
+    { "type": "binds", "from": "screen:orders/List", "to": "vs:orders/TabState" },
+    { "type": "binds", "from": "screen:orders/Detail", "to": "store:orders/OrderStore" },
+
+    { "type": "emits", "from": "act:checkout/TrackPurchase", "to": "fx:checkout/PurchaseTracked", "effect": "analytics" },
+    { "type": "emits", "from": "op:checkout/ReserveListing", "to": "fx:checkout/ListingCacheInvalidated", "effect": "log" },
+    { "type": "emits", "from": "op:checkout/CreateFreeOrder", "to": "fx:checkout/ListingCacheInvalidated", "effect": "log" },
+    { "type": "emits", "from": "op:webhook/HandleStripeEvent", "to": "fx:order/BuyerConfirmationEmail", "effect": "notification" },
+    { "type": "emits", "from": "op:webhook/HandleStripeEvent", "to": "fx:order/SellerNewOrderEmail", "effect": "notification" },
+    { "type": "emits", "from": "op:webhook/HandleStripeEvent", "to": "fx:webhook/CartItemsRemoved", "effect": "log" },
+    { "type": "emits", "from": "op:orders/CreateShippingLabel", "to": "fx:order/BuyerShippedEmail", "effect": "notification" },
+    { "type": "emits", "from": "op:orders/CreateShippingLabel", "to": "fx:order/SellerLabelEmail", "effect": "notification" },
+    { "type": "emits", "from": "op:orders/CreateShippingLabel", "to": "fx:order/BuyerInAppNotification", "effect": "notification" },
+    { "type": "emits", "from": "op:orders/CreateShippingLabel", "to": "fx:order/SellerInAppNotification", "effect": "notification" },
+
+    { "type": "guardedBy", "from": "trig:checkout/FormAppear", "to": "assert:checkout/IsAuthenticated", "polarity": "require" },
+    { "type": "guardedBy", "from": "trig:orders/ListAppear", "to": "assert:checkout/IsAuthenticated", "polarity": "require" },
+    { "type": "guardedBy", "from": "trig:orders/DetailAppear", "to": "assert:checkout/IsAuthenticated", "polarity": "require" },
+    { "type": "guardedBy", "from": "act:checkout/PlaceOrder", "to": "assert:checkout/SellerPaymentsEnabled", "polarity": "require" },
+    { "type": "guardedBy", "from": "act:checkout/PlaceOrder", "to": "assert:checkout/ListingIsActive", "polarity": "require" },
+    { "type": "guardedBy", "from": "act:checkout/PlaceOrder", "to": "assert:checkout/NotOwnListing", "polarity": "require" },
+    { "type": "guardedBy", "from": "act:checkout/PlaceOrder", "to": "assert:checkout/ShippingAddressValid", "polarity": "require" },
+    { "type": "guardedBy", "from": "op:checkout/ReserveListing", "to": "assert:checkout/RequestBodyValid", "polarity": "require" },
+    { "type": "guardedBy", "from": "op:checkout/ReserveListing", "to": "assert:checkout/RateLimitOk", "polarity": "require" },
+    { "type": "guardedBy", "from": "op:checkout/ReserveListing", "to": "assert:checkout/ListingNotReserved", "polarity": "require" },
+    { "type": "guardedBy", "from": "act:orders/CreateLabel", "to": "assert:orders/OrderIsPaid", "polarity": "require" },
+    { "type": "guardedBy", "from": "act:orders/CreateLabel", "to": "assert:orders/IsSeller", "polarity": "require" },
+    { "type": "guardedBy", "from": "act:orders/CreateLabel", "to": "assert:orders/NoCancelPending", "polarity": "require" },
+    { "type": "guardedBy", "from": "act:orders/CreateLabel", "to": "assert:orders/FulfillmentIsShipping", "polarity": "require" },
+    { "type": "guardedBy", "from": "act:orders/ConfirmReceipt", "to": "assert:orders/IsBuyer", "polarity": "require" },
+    { "type": "guardedBy", "from": "act:orders/RequestCancel", "to": "assert:orders/NoCancelPending", "polarity": "require" },
+    { "type": "guardedBy", "from": "op:webhook/HandleStripeEvent", "to": "assert:webhook/SigValid", "polarity": "require" },
+    { "type": "guardedBy", "from": "op:webhook/HandleStripeEvent", "to": "assert:webhook/NotDuplicate", "polarity": "require" },
+
+    { "type": "derivesFrom", "from": "assert:checkout/IsAuthenticated", "to": "ds:supabase/AuthSession" },
+    { "type": "derivesFrom", "from": "assert:checkout/SellerPaymentsEnabled", "to": "store:listing/ListingStore" },
+    { "type": "derivesFrom", "from": "assert:checkout/ListingIsActive", "to": "store:listing/ListingStore" },
+    { "type": "derivesFrom", "from": "assert:checkout/NotOwnListing", "to": "store:listing/ListingStore" },
+    { "type": "derivesFrom", "from": "assert:checkout/IsFreeOrder", "to": "store:listing/ListingStore" },
+    { "type": "derivesFrom", "from": "assert:checkout/ShippingAddressValid", "to": "vs:checkout/FormState" },
+    { "type": "derivesFrom", "from": "assert:checkout/RequestBodyValid", "to": "vs:checkout/FormState" },
+    { "type": "derivesFrom", "from": "assert:checkout/RateLimitOk", "to": "ds:supabase/AuthSession" },
+    { "type": "derivesFrom", "from": "assert:checkout/ListingNotReserved", "to": "ds:supabase/Listings" },
+    { "type": "derivesFrom", "from": "assert:orders/OrderIsPaid", "to": "store:orders/OrderStore" },
+    { "type": "derivesFrom", "from": "assert:orders/IsSeller", "to": "store:orders/OrderStore" },
+    { "type": "derivesFrom", "from": "assert:orders/IsBuyer", "to": "store:orders/OrderStore" },
+    { "type": "derivesFrom", "from": "assert:orders/NoCancelPending", "to": "store:orders/OrderStore" },
+    { "type": "derivesFrom", "from": "assert:orders/FulfillmentIsShipping", "to": "store:orders/OrderStore" },
+    { "type": "derivesFrom", "from": "assert:webhook/SigValid", "to": "ds:stripe/SigningSecret" },
+    { "type": "derivesFrom", "from": "assert:webhook/NotDuplicate", "to": "ds:supabase/Orders" }
+  ]
+}

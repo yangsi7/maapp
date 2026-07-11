@@ -1,0 +1,23 @@
+{
+  "diff_of": ["graph.step3.json", "graph.step4.json"],
+  "source_commit": "e6f1983e feat(checkout): buyer preferred delivery address (#1071)",
+  "nodes_added": [
+    "act:checkout/PrefillSavedAddress",
+    "ds:supabase/BuyerAddresses",
+    "op:checkout/FetchSavedAddress"
+  ],
+  "nodes_removed": [],
+  "nodes_changed": {},
+  "edges_added": [
+    { "type": "fires", "from": "trig:checkout/FormAppear", "to": "act:checkout/PrefillSavedAddress", "seq": 0 },
+    { "type": "invokes", "from": "act:checkout/PrefillSavedAddress", "to": "op:checkout/FetchSavedAddress", "awaits": true },
+    { "type": "reads", "from": "op:checkout/FetchSavedAddress", "to": "ds:supabase/BuyerAddresses", "cachePolicy": "fresh" }
+  ],
+  "edges_removed": [],
+  "edges_changed": [
+    {
+      "identity": { "type": "fires", "from": "trig:checkout/FormAppear", "to": "act:checkout/LoadListing" },
+      "attrs": { "seq": { "from": 0, "to": 1 } }
+    }
+  ]
+}

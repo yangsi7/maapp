@@ -1,0 +1,41 @@
+{
+  "schema": "design-stale-graph",
+  "version": "1.4",
+  "meta": {
+    "app": "DesignStaleFixture",
+    "lints": ["design-completeness"],
+    "tokensSource": "docs/product/design-tokens.json"
+  },
+  "nodes": {
+    "surface": {
+      "screen:app/Home": {
+        "kind": "Screen",
+        "intent": "reviewed-then-changed: the stored receipt no longer matches",
+        "refs": { "tokens": "homeScreen", "design": "figma:home/main" },
+        "attrs": { "review": { "design": { "v": "passed", "against": "fnv1a:44d6838d5502de8e" } } }
+      },
+      "comp:app/Card": {
+        "kind": "Component",
+        "intent": "card whose token CHANGED since the screen's review (was 'card', now 'listRow')",
+        "refs": { "tokens": "listRow" }
+      }
+    },
+    "logic": {
+      "vs:home/Empty": {
+        "kind": "ViewState",
+        "refs": {},
+        "attrs": { "phase": "empty" }
+      },
+      "vs:home/Error": {
+        "kind": "ViewState",
+        "refs": {},
+        "attrs": { "phase": "error" }
+      }
+    }
+  },
+  "edges": [
+    { "type": "renders", "from": "screen:app/Home", "to": "comp:app/Card" },
+    { "type": "binds", "from": "screen:app/Home", "to": "vs:home/Empty" },
+    { "type": "binds", "from": "screen:app/Home", "to": "vs:home/Error" }
+  ]
+}

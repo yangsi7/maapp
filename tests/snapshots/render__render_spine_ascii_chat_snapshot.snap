@@ -1,0 +1,56 @@
+---
+source: tests/render.rs
+expression: "render_out(&[\"spine\", \"--ascii\", \"examples/chat.json\"])"
+---
+BACKEND PULL SPINE — STALACTITE VIEW  (downward data-pull only)
+================================================================================
+Each column = one consumer surface. Read DOWN: surface chip -> bound
+stores/viewstates (LOGIC) -> produced stores -> pipeline stages ->
+BackendOps (floor). Spine length = pull depth.
+schema chat-graph v1.3  ·  96 nodes / 135 edges
+
+PER-COLUMN PULL SUMMARY
+--------------------------------------------------------------------------------
+surface                  depth  fanin floor  ticks
+ConversationRow          1      1     .      #
+MessageBubble            5      2     YES    ##
+MessageList              6      2     YES    ##
+ConversationInfo         2      2     .      ##
+NewConversation          1      1     .      #
+Profile                  1      1     .      #
+Search                   1      1     .      #
+Settings                 1      1     .      #
+SharedMedia              5      2     YES    ##
+
+STALACTITE GRID  (shared substrate rows; | = spine, o = tick,
+                  # = stage/op tick)
+--------------------------------------------------------------------------------
+                    |CR MB ML CI NC PR SE S1 SM 
+                    +---------------------------
+SURFACE             |[] [] [] [] [] [] [] [] [] 
+  bind[0]           | o  o  o  o  o  o  o  o  o 
+  bind[1]           |    |  o  o              | 
+  InboundBuffer     |    o  o                 o 
+  ThreadStore       |    o  o                 o 
+stage:Ingest        |    #  #                 # 
+op:UploadAttachment |    #  #                 # 
+                    +===========================  <- floor (BackendOps)
+
+COLUMN CODES
+--------------------------------------------------------------------------------
+  CR   = ConversationRow        (Component)
+  MB   = MessageBubble          (Component)
+  ML   = MessageList            (Component)
+  CI   = ConversationInfo       (Screen)
+  NC   = NewConversation        (Screen)
+  PR   = Profile                (Screen)
+  SE   = Search                 (Screen)
+  S1   = Settings               (Screen)
+  SM   = SharedMedia            (Screen)
+
+SHARED SUBSTRATE NODES (convergence — multiple spines land here)
+--------------------------------------------------------------------------------
+  3x  op    UploadAttachment
+  3x  stage Ingest
+  3x  store InboundBuffer
+  3x  store ThreadStore

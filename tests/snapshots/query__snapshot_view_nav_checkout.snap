@@ -1,0 +1,157 @@
+---
+source: tests/query.rs
+expression: rs
+---
+{
+  "view": "nav",
+  "nodes": [
+    "act:address/Cancel",
+    "act:address/SaveAndContinue",
+    "act:card/SaveCard",
+    "act:cart/GoToShipping",
+    "act:cart/PresentPromoCode",
+    "act:delivery/Confirm",
+    "act:order/Retry",
+    "act:pay/Continue",
+    "act:pay/PresentCardEntry",
+    "act:promo/Apply",
+    "act:review/PlaceOrder",
+    "act:shipping/Continue",
+    "act:shipping/PresentAddressForm",
+    "act:shipping/PresentDeliveryMethod",
+    "screen:cart/PromoCode",
+    "screen:checkout/AddressForm",
+    "screen:checkout/CardEntry",
+    "screen:checkout/Complete",
+    "screen:checkout/DeliveryMethod",
+    "screen:checkout/OrderFailed",
+    "screen:checkout/Payment",
+    "screen:checkout/Review",
+    "screen:checkout/Shipping",
+    "x-ext:pay/ApplePaySheet"
+  ],
+  "edges": [
+    {
+      "type": "navigates",
+      "from": "act:cart/GoToShipping",
+      "to": "screen:checkout/Shipping",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:shipping/PresentAddressForm",
+      "to": "screen:checkout/AddressForm",
+      "present": "sheet"
+    },
+    {
+      "type": "navigates",
+      "from": "act:shipping/Continue",
+      "to": "screen:checkout/Payment",
+      "present": "push"
+    },
+    {
+      "type": "dismisses",
+      "from": "act:address/SaveAndContinue",
+      "to": "screen:checkout/AddressForm",
+      "target": "self",
+      "writesBack": "CheckoutStore.address"
+    },
+    {
+      "type": "dismisses",
+      "from": "act:address/Cancel",
+      "to": "screen:checkout/AddressForm",
+      "target": "self"
+    },
+    {
+      "type": "navigates",
+      "from": "act:pay/Continue",
+      "to": "screen:checkout/Review",
+      "present": "push",
+      "when": "assert:pay/CardSelected"
+    },
+    {
+      "type": "navigates",
+      "from": "act:pay/Continue",
+      "to": "x-ext:pay/ApplePaySheet",
+      "present": "sheet",
+      "when": "else"
+    },
+    {
+      "type": "navigates",
+      "from": "act:pay/PresentCardEntry",
+      "to": "screen:checkout/CardEntry",
+      "present": "sheet"
+    },
+    {
+      "type": "dismisses",
+      "from": "act:card/SaveCard",
+      "to": "screen:checkout/CardEntry",
+      "target": "self",
+      "writesBack": "CheckoutStore.paymentToken"
+    },
+    {
+      "type": "x-ext:returnsTo",
+      "from": "x-ext:pay/ApplePaySheet",
+      "to": "screen:checkout/Review",
+      "present": "replace-root",
+      "when": "success",
+      "writesBack": "CheckoutStore.paymentToken"
+    },
+    {
+      "type": "x-ext:returnsTo",
+      "from": "x-ext:pay/ApplePaySheet",
+      "to": "screen:checkout/Payment",
+      "present": "push",
+      "when": "cancelled"
+    },
+    {
+      "type": "x-ext:returnsTo",
+      "from": "x-ext:pay/ApplePaySheet",
+      "to": "screen:checkout/Payment",
+      "present": "push",
+      "when": "failed"
+    },
+    {
+      "type": "navigates",
+      "from": "act:review/PlaceOrder",
+      "to": "screen:checkout/Complete",
+      "present": "replace-root"
+    },
+    {
+      "type": "navigates",
+      "from": "act:shipping/PresentDeliveryMethod",
+      "to": "screen:checkout/DeliveryMethod",
+      "present": "sheet"
+    },
+    {
+      "type": "dismisses",
+      "from": "act:delivery/Confirm",
+      "to": "screen:checkout/DeliveryMethod",
+      "target": "self"
+    },
+    {
+      "type": "navigates",
+      "from": "act:cart/PresentPromoCode",
+      "to": "screen:cart/PromoCode",
+      "present": "sheet"
+    },
+    {
+      "type": "dismisses",
+      "from": "act:promo/Apply",
+      "to": "screen:cart/PromoCode",
+      "target": "self"
+    },
+    {
+      "type": "navigates",
+      "from": "act:review/PlaceOrder",
+      "to": "screen:checkout/OrderFailed",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:order/Retry",
+      "to": "screen:checkout/Review",
+      "present": "push"
+    }
+  ]
+}

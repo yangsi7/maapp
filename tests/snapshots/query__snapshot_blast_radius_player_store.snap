@@ -1,0 +1,26 @@
+---
+source: tests/query.rs
+expression: rs
+---
+{
+  "id": "store:PlayerStore",
+  "dependents": [
+    "act:detail/PlayPlaylist",
+    "act:detail/PlayTrack",
+    "act:player/AdvancePosition",
+    "act:player/CommitSeek",
+    "act:player/SkipNext",
+    "act:player/TogglePlayPause",
+    "assert:player/HasCurrentTrack",
+    "assert:player/ScrubValid",
+    "comp:player/MiniBar",
+    "comp:player/SeekBar",
+    "comp:player/Transport",
+    "op:player/ResolveStream",
+    "op:player/Scrobble",
+    "screen:player/Lyrics",
+    "screen:player/NowPlaying",
+    "screen:player/Queue"
+  ],
+  "dependencies": []
+}

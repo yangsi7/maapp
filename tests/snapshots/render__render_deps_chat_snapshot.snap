@@ -1,0 +1,115 @@
+---
+source: tests/render.rs
+expression: "render_out(&[\"deps\", \"examples/chat.json\"])"
+---
+# App-Spec Graph — dependency view (generated; do NOT hand-edit)
+
+> The dependency-edge subgraph (filter `.edges[]` to ['binds', 'derivesFrom', 'invokes', 'produces', 'reads', 'writes', 'x-behavior:reconciles', 'x-pipeline:consumes', 'x-pipeline:feeds']). 35 edge(s). Regenerate with `graph render deps`.
+
+## Edge list
+
+| from | edge | to | attrs |
+|---|---|---|---|
+| `act:list/StartCompose` | writes | `store:ConversationStore` | mode=append |
+| `act:newgroup/CreateGroup` | writes | `store:ConversationStore` | mode=append |
+| `act:thread/IngestInbound` | invokes | `stage:rt/Ingest` | awaits=False |
+| `act:thread/IngestInbound` | writes | `store:InboundBuffer` | mode=append |
+| `act:thread/RetrySend` | invokes | `op:chat/SendMessage` | awaits=True, idempotent=True |
+| `act:thread/RetrySend` | writes | `store:ThreadStore` | mode=set, optimistic=True, scopedBy=message.clientId |
+| `act:thread/SendMessage` | invokes | `op:chat/SendMessage` | awaits=True, idempotent=True |
+| `act:thread/SendMessage` | invokes | `op:chat/UploadAttachment` | awaits=True |
+| `act:thread/SendMessage` | writes | `store:ThreadStore` | mode=append, optimistic=True, scopedBy=ThreadStore.conversationId |
+| `act:thread/Subscribe` | invokes | `stage:rt/Ingest` | awaits=False |
+| `assert:thread/AttachmentValid` | derivesFrom | `vs:thread/Compose` |  |
+| `assert:thread/Connected` | derivesFrom | `ds:realtime/Socket` |  |
+| `assert:thread/ConversationResolved` | derivesFrom | `store:ConversationStore` |  |
+| `assert:thread/DraftSendable` | derivesFrom | `vs:thread/Compose` |  |
+| `assert:thread/MessageFailed` | derivesFrom | `store:ThreadStore` |  |
+| `assert:thread/SubscriptionActive` | derivesFrom | `ds:realtime/Socket` |  |
+| `comp:chat/ComposeBar` | binds | `vs:thread/Compose` |  |
+| `comp:chat/ConversationRow` | binds | `store:ConversationStore` | scopedBy=row.conversationId |
+| `comp:chat/MessageBubble` | binds | `store:ThreadStore` | scopedBy=message.clientId |
+| `comp:chat/MessageList` | binds | `store:ThreadStore` | scopedBy=ThreadStore.conversationId |
+| `comp:chat/MessageList` | binds | `vs:thread/HistoryLoad` |  |
+| `comp:chat/TypingIndicator` | binds | `vs:thread/Typing` |  |
+| `op:chat/SendMessage` | x-behavior:reconciles | `store:ThreadStore` | onFailure=rollback |
+| `op:chat/UploadAttachment` | produces | `store:ThreadStore` | artifact=mediaToken |
+| `screen:chat/ConversationInfo` | binds | `store:ConversationStore` | scopedBy=ConversationStore.conversationId |
+| `screen:chat/ConversationInfo` | binds | `store:NotificationSettingsStore` |  |
+| `screen:chat/NewConversation` | binds | `store:ContactsStore` |  |
+| `screen:chat/Profile` | binds | `store:ContactsStore` |  |
+| `screen:chat/Search` | binds | `store:ConversationStore` |  |
+| `screen:chat/Settings` | binds | `store:CurrentUserStore` |  |
+| `screen:chat/SharedMedia` | binds | `store:ThreadStore` | scopedBy=ThreadStore.conversationId |
+| `stage:rt/Ingest` | produces | `store:ThreadStore` | artifact=inboundMessages |
+| `stage:rt/Ingest` | reads | `ds:realtime/Socket` | cachePolicy=fresh |
+| `store:InboundBuffer` | x-pipeline:consumes | `stage:rt/Ingest` |  |
+| `store:ThreadStore` | x-pipeline:consumes | `stage:rt/Ingest` |  |
+
+## ASCII adjacency (dependency out-edges)
+
+```
+act:list/StartCompose
+  ──writes──▶ store:ConversationStore
+act:newgroup/CreateGroup
+  ──writes──▶ store:ConversationStore
+act:thread/IngestInbound
+  ──invokes──▶ stage:rt/Ingest
+  ──writes──▶ store:InboundBuffer
+act:thread/RetrySend
+  ──invokes──▶ op:chat/SendMessage
+  ──writes──▶ store:ThreadStore
+act:thread/SendMessage
+  ──invokes──▶ op:chat/SendMessage
+  ──invokes──▶ op:chat/UploadAttachment
+  ──writes──▶ store:ThreadStore
+act:thread/Subscribe
+  ──invokes──▶ stage:rt/Ingest
+assert:thread/AttachmentValid
+  ──derivesFrom──▶ vs:thread/Compose
+assert:thread/Connected
+  ──derivesFrom──▶ ds:realtime/Socket
+assert:thread/ConversationResolved
+  ──derivesFrom──▶ store:ConversationStore
+assert:thread/DraftSendable
+  ──derivesFrom──▶ vs:thread/Compose
+assert:thread/MessageFailed
+  ──derivesFrom──▶ store:ThreadStore
+assert:thread/SubscriptionActive
+  ──derivesFrom──▶ ds:realtime/Socket
+comp:chat/ComposeBar
+  ──binds──▶ vs:thread/Compose
+comp:chat/ConversationRow
+  ──binds──▶ store:ConversationStore
+comp:chat/MessageBubble
+  ──binds──▶ store:ThreadStore
+comp:chat/MessageList
+  ──binds──▶ store:ThreadStore
+  ──binds──▶ vs:thread/HistoryLoad
+comp:chat/TypingIndicator
+  ──binds──▶ vs:thread/Typing
+op:chat/SendMessage
+  ──x-behavior:reconciles──▶ store:ThreadStore
+op:chat/UploadAttachment
+  ──produces──▶ store:ThreadStore
+screen:chat/ConversationInfo
+  ──binds──▶ store:ConversationStore
+  ──binds──▶ store:NotificationSettingsStore
+screen:chat/NewConversation
+  ──binds──▶ store:ContactsStore
+screen:chat/Profile
+  ──binds──▶ store:ContactsStore
+screen:chat/Search
+  ──binds──▶ store:ConversationStore
+screen:chat/Settings
+  ──binds──▶ store:CurrentUserStore
+screen:chat/SharedMedia
+  ──binds──▶ store:ThreadStore
+stage:rt/Ingest
+  ──produces──▶ store:ThreadStore
+  ──reads──▶ ds:realtime/Socket
+store:InboundBuffer
+  ──x-pipeline:consumes──▶ stage:rt/Ingest
+store:ThreadStore
+  ──x-pipeline:consumes──▶ stage:rt/Ingest
+```

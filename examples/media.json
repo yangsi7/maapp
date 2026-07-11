@@ -1,0 +1,1054 @@
+{
+  "meta": {
+    "schema": "maapp-graph",
+    "version": "1.3",
+    "vocab": "spec/EDGE-VOCABULARY.md",
+    "app": "Media player (audio) — Library->Detail->NowPlaying + persistent mini-bar + queue. Flow modeled after SoundCloud Library flow (mobbin ddb2a5fb-4753-46f6-84ea-5ddc29d2d6dc).",
+    "query": "graph query <node|neighbors|blast-radius|trace|view|orphans> [args] <file>",
+    "validate": "graph validate <file>",
+    "lints": []
+  },
+  "schema": "maapp-graph",
+  "version": "1.3",
+  "nodeKindRegistry": {
+    "x-ext:ExternalSurface": {
+      "kind": "x-ext:ExternalSurface",
+      "layer": "boundary",
+      "legal_in_edges": [
+        "navigates"
+      ],
+      "legal_out_edges": [
+        "returnsTo",
+        "fires",
+        "emits"
+      ],
+      "attrs": {
+        "surfaceKind": [
+          "osShareSheet",
+          "applePaySheet",
+          "oauthRedirect",
+          "threeDSChallenge",
+          "externalApp"
+        ],
+        "outcome": [
+          "success",
+          "cancelled",
+          "failed"
+        ]
+      }
+    },
+    "x-ext:PermissionGate": {
+      "kind": "x-ext:PermissionGate",
+      "layer": "boundary",
+      "legal_in_edges": [
+        "navigates",
+        "fires"
+      ],
+      "legal_out_edges": [
+        "returnsTo",
+        "fires",
+        "emits"
+      ],
+      "attrs": {
+        "outcome": [
+          "granted",
+          "denied",
+          "limited"
+        ],
+        "persistent": true,
+        "rePromptable": true
+      }
+    }
+  },
+  "edgeRegistry": {
+    "x-behavior:reconciles": {
+      "ns": "x-behavior",
+      "from_kinds": [
+        "BackendOp"
+      ],
+      "to_kinds": [
+        "StateStore"
+      ],
+      "family": "COMMAND",
+      "subPropertyOf": "writes",
+      "attrs": {
+        "onFailure": [
+          "rollback",
+          "retain",
+          "escalate"
+        ]
+      }
+    },
+    "x-ext:returnsTo": {
+      "ns": "x-ext",
+      "from_kinds": [
+        "x-ext:ExternalSurface",
+        "x-ext:PermissionGate"
+      ],
+      "to_kinds": [
+        "Screen",
+        "NavContainer"
+      ],
+      "family": "NAV",
+      "subPropertyOf": "navigates",
+      "attrs": {
+        "when": "<outcome-value|\"else\">",
+        "writesBack": "<StateStore.key>"
+      }
+    }
+  },
+  "nodeKinds": {
+    "surface": [
+      "Screen",
+      "Component",
+      "NavContainer"
+    ],
+    "logic": [
+      "Trigger",
+      "NavAction",
+      "MutationAction",
+      "EffectAction",
+      "ViewStateAction",
+      "QueryAction",
+      "ViewState",
+      "Assertion"
+    ],
+    "substrate": [
+      "StateStore",
+      "DataSource",
+      "BackendOp",
+      "PipelineStage",
+      "SideEffect"
+    ],
+    "policy": [
+      "Policy"
+    ],
+    "boundary": []
+  },
+  "nodes": {
+    "surface": {
+      "nav:root/TabHost": {
+        "kind": "NavContainer",
+        "intent": "Root tab host (Home / Feed / Search / Library); persistently renders the mini-player above the tab bar.",
+        "refs": {}
+      },
+      "screen:library/Library": {
+        "kind": "Screen",
+        "intent": "Browse the user's library: playlists, albums, liked tracks, listening history.",
+        "refs": {}
+      },
+      "screen:detail/PlaylistDetail": {
+        "kind": "Screen",
+        "intent": "Item detail: playlist/album header + Play/Shuffle controls + ordered track list.",
+        "refs": {}
+      },
+      "screen:player/NowPlaying": {
+        "kind": "Screen",
+        "intent": "Full-screen now-playing: artwork, seek scrubber, transport controls, route to queue.",
+        "refs": {}
+      },
+      "screen:player/Queue": {
+        "kind": "Screen",
+        "intent": "Up-Next queue: now-playing header + draggable/removable Playing-Next list.",
+        "refs": {}
+      },
+      "screen:search/Search": {
+        "kind": "Screen",
+        "intent": "Search the catalog: query field + results across tracks, albums, artists, and playlists; surfaces recent searches and listening history before a query is entered.",
+        "refs": {}
+      },
+      "screen:library/LikedSongs": {
+        "kind": "Screen",
+        "intent": "The user's Liked Songs: the full list of hearted tracks from the library; tap a track to play it like any other track list.",
+        "refs": {}
+      },
+      "screen:artist/Artist": {
+        "kind": "Screen",
+        "intent": "Artist page: artist header (name, artwork, follow) + popular tracks, albums, and related artists.",
+        "refs": {}
+      },
+      "screen:player/Lyrics": {
+        "kind": "Screen",
+        "intent": "Time-synced lyrics for the current track; highlights the active line against the shared playback position.",
+        "refs": {}
+      },
+      "screen:settings/Settings": {
+        "kind": "Screen",
+        "intent": "App settings: playback quality, downloads, crossfade, account, and about; grouped option list.",
+        "refs": {}
+      },
+      "comp:player/MiniBar": {
+        "kind": "Component",
+        "intent": "Persistent now-playing mini-bar (title, artist, play/pause) shown across every tab; binds the shared player store.",
+        "refs": {}
+      },
+      "comp:player/SeekBar": {
+        "kind": "Component",
+        "intent": "Now-playing scrubber; binds shared position from the player store and local drag state.",
+        "refs": {}
+      },
+      "comp:player/Transport": {
+        "kind": "Component",
+        "intent": "Transport control cluster (play/pause, prev, next, shuffle) on now-playing.",
+        "refs": {}
+      },
+      "comp:detail/TrackRow": {
+        "kind": "Component",
+        "intent": "One tappable track row in the playlist track list.",
+        "refs": {}
+      },
+      "comp:queue/QueueRow": {
+        "kind": "Component",
+        "intent": "One Playing-Next row: drag handle to reorder, minus button to remove.",
+        "refs": {}
+      }
+    },
+    "logic": {
+      "trig:library/RowTap": {
+        "kind": "Trigger",
+        "intent": "User taps a playlist/album in the library.",
+        "refs": {}
+      },
+      "trig:detail/PlayTap": {
+        "kind": "Trigger",
+        "intent": "User taps the big Play button on item detail (play whole playlist).",
+        "refs": {}
+      },
+      "trig:detail/TrackTap": {
+        "kind": "Trigger",
+        "intent": "User taps a single track row in the list.",
+        "refs": {}
+      },
+      "trig:mini/BarTap": {
+        "kind": "Trigger",
+        "intent": "User taps the mini-bar body to expand the full now-playing screen.",
+        "refs": {}
+      },
+      "trig:mini/PlayPauseTap": {
+        "kind": "Trigger",
+        "intent": "User taps play/pause on the mini-bar.",
+        "refs": {}
+      },
+      "trig:player/PlayPauseTap": {
+        "kind": "Trigger",
+        "intent": "User taps play/pause on the now-playing transport.",
+        "refs": {}
+      },
+      "trig:player/NextTap": {
+        "kind": "Trigger",
+        "intent": "User taps Next (skip to next queue item).",
+        "refs": {}
+      },
+      "trig:player/SeekDrag": {
+        "kind": "Trigger",
+        "intent": "User drags the seek scrubber (continuous change while dragging).",
+        "refs": {}
+      },
+      "trig:player/SeekRelease": {
+        "kind": "Trigger",
+        "intent": "User releases the scrubber, committing the seek position.",
+        "refs": {}
+      },
+      "trig:player/QueueTap": {
+        "kind": "Trigger",
+        "intent": "User taps the queue icon on now-playing.",
+        "refs": {}
+      },
+      "trig:queue/RowDrag": {
+        "kind": "Trigger",
+        "intent": "User drags a queue row to a new position.",
+        "refs": {}
+      },
+      "trig:queue/RemoveTap": {
+        "kind": "Trigger",
+        "intent": "User taps the minus to remove a track from the queue.",
+        "refs": {}
+      },
+      "trig:player/Tick": {
+        "kind": "Trigger",
+        "intent": "Per-second playback timer tick advancing the position.",
+        "refs": {}
+      },
+      "trig:library/SearchTap": {
+        "kind": "Trigger",
+        "intent": "User taps the search field/icon in the library to open search.",
+        "refs": {}
+      },
+      "trig:library/LikedTap": {
+        "kind": "Trigger",
+        "intent": "User taps the Liked Songs shortcut row in the library.",
+        "refs": {}
+      },
+      "trig:library/SettingsTap": {
+        "kind": "Trigger",
+        "intent": "User taps the settings gear in the library.",
+        "refs": {}
+      },
+      "trig:detail/ArtistTap": {
+        "kind": "Trigger",
+        "intent": "User taps the artist name on the playlist/album header.",
+        "refs": {}
+      },
+      "trig:player/LyricsTap": {
+        "kind": "Trigger",
+        "intent": "User taps the lyrics button on now-playing.",
+        "refs": {}
+      },
+      "act:detail/OpenDetail": {
+        "kind": "NavAction",
+        "intent": "Push the playlist/album detail screen.",
+        "refs": {}
+      },
+      "act:detail/PlayPlaylist": {
+        "kind": "MutationAction",
+        "intent": "Save-and-advance: load the playlist into the queue, start playback, log analytics, AND expand now-playing (G15 multi-effect nav).",
+        "refs": {}
+      },
+      "act:detail/PlayTrack": {
+        "kind": "MutationAction",
+        "intent": "Set the playing track + reset queue to playlist-from-this-track, start playback, advance to now-playing (G15 multi-effect nav).",
+        "refs": {}
+      },
+      "act:mini/ExpandPlayer": {
+        "kind": "NavAction",
+        "intent": "Present the full now-playing screen from the mini-bar.",
+        "refs": {}
+      },
+      "act:player/TogglePlayPause": {
+        "kind": "MutationAction",
+        "intent": "Toggle the shared isPlaying flag in the player store (drives mini-bar + transport + background state).",
+        "refs": {}
+      },
+      "act:player/SkipNext": {
+        "kind": "MutationAction",
+        "intent": "Advance the queue cursor, set the new current track, invoke the resolve op.",
+        "refs": {}
+      },
+      "act:player/UpdateScrub": {
+        "kind": "ViewStateAction",
+        "intent": "Write the live drag position into local scrub view-state while the finger is down.",
+        "refs": {}
+      },
+      "act:player/CommitSeek": {
+        "kind": "MutationAction",
+        "intent": "On release, commit the scrubbed position into the shared player store (guarded by a valid scrub position).",
+        "refs": {}
+      },
+      "act:player/OpenQueue": {
+        "kind": "NavAction",
+        "intent": "Present the Up-Next queue sheet.",
+        "refs": {}
+      },
+      "act:queue/ReorderTrack": {
+        "kind": "MutationAction",
+        "intent": "Reorder the queue array (move the dragged track to a new index).",
+        "refs": {}
+      },
+      "act:queue/RemoveTrack": {
+        "kind": "MutationAction",
+        "intent": "Delete a track from the queue array.",
+        "refs": {}
+      },
+      "act:player/AdvancePosition": {
+        "kind": "MutationAction",
+        "intent": "Advance the shared playback position on each timer tick (keeps mini-bar + scrubber coherent).",
+        "refs": {}
+      },
+      "act:search/OpenSearch": {
+        "kind": "NavAction",
+        "intent": "Push the search screen.",
+        "refs": {}
+      },
+      "act:library/OpenLiked": {
+        "kind": "NavAction",
+        "intent": "Push the Liked Songs list.",
+        "refs": {}
+      },
+      "act:settings/OpenSettings": {
+        "kind": "NavAction",
+        "intent": "Push the settings screen.",
+        "refs": {}
+      },
+      "act:artist/OpenArtist": {
+        "kind": "NavAction",
+        "intent": "Push the artist page for the tapped artist.",
+        "refs": {}
+      },
+      "act:player/OpenLyrics": {
+        "kind": "NavAction",
+        "intent": "Present the lyrics sheet over now-playing.",
+        "refs": {}
+      },
+      "vs:player/Scrub": {
+        "kind": "ViewState",
+        "intent": "Local, ephemeral scrubber drag state (the finger's live position before release).",
+        "refs": {},
+        "attrs": {
+          "phase": "live"
+        }
+      },
+      "vs:player/ArtworkLoad": {
+        "kind": "ViewState",
+        "intent": "Empty/loading/error state for the now-playing artwork before the track artwork resolves.",
+        "refs": {},
+        "attrs": {
+          "phase": "loading"
+        }
+      },
+      "assert:player/ScrubValid": {
+        "kind": "Assertion",
+        "intent": "The pending scrub position is within [0, duration]; derives from live scrub view-state (G16).",
+        "refs": {}
+      },
+      "assert:player/HasCurrentTrack": {
+        "kind": "Assertion",
+        "intent": "There is a current track loaded before transport controls may act.",
+        "refs": {}
+      },
+      "assert:queue/HasNext": {
+        "kind": "Assertion",
+        "intent": "There is a next item past the queue cursor before Skip-Next may advance (the Next control is inert at the end of the queue).",
+        "refs": {}
+      },
+      "assert:player/TrackAvailable": {
+        "kind": "Assertion",
+        "intent": "The track about to be streamed is licensed/available in the user's region (not greyed-out) before the stream is resolved.",
+        "refs": {}
+      }
+    },
+    "substrate": {
+      "store:PlayerStore": {
+        "kind": "StateStore",
+        "intent": "Persistent now-playing source of truth: currentTrack, isPlaying, positionSec, durationSec. Bound by mini-bar, seek-bar, transport, queue header; survives across tabs + background.",
+        "refs": {}
+      },
+      "store:QueueStore": {
+        "kind": "StateStore",
+        "intent": "Ordered Up-Next queue (track ids + cursor index); mutated by play/skip/reorder/remove.",
+        "refs": {}
+      },
+      "store:LibraryStore": {
+        "kind": "StateStore",
+        "intent": "Cached library: playlists, albums, liked tracks, listening history.",
+        "refs": {}
+      },
+      "op:player/ResolveStream": {
+        "kind": "BackendOp",
+        "intent": "Resolve the streamable audio URL + metadata for a track id; primes the audio engine.",
+        "refs": {}
+      },
+      "op:player/Scrobble": {
+        "kind": "BackendOp",
+        "intent": "Report a completed/started play to the backend (history + recommendations).",
+        "refs": {}
+      },
+      "fx:analytics/PlayStarted": {
+        "kind": "SideEffect",
+        "intent": "Analytics event emitted when playback starts from detail.",
+        "refs": {}
+      },
+      "fx:haptic/Transport": {
+        "kind": "SideEffect",
+        "intent": "Haptic tick on transport interactions (play/pause/skip).",
+        "refs": {}
+      }
+    },
+    "policy": {
+      "policy:player/OnDemandEntitlement": {
+        "kind": "Policy",
+        "intent": "On-demand selection of a specific track requires a paid streaming entitlement; the free tier is shuffle-only and cannot play a chosen track on demand.",
+        "refs": {}
+      },
+      "policy:player/AudioFocus": {
+        "kind": "Policy",
+        "intent": "The app must acquire system audio focus (AVAudioSession / AudioManager) before audio playback may begin; another app holding exclusive focus (a call, navigation prompt) blocks it.",
+        "refs": {}
+      },
+      "policy:account/AuthedSession": {
+        "kind": "Policy",
+        "intent": "An authenticated user session is required for account-scoped backend calls; logged-out playback does not post listening history or feed recommendations.",
+        "refs": {}
+      }
+    },
+    "boundary": {}
+  },
+  "edges": [
+    {
+      "type": "renders",
+      "from": "nav:root/TabHost",
+      "to": "comp:player/MiniBar",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:detail/PlaylistDetail",
+      "to": "comp:detail/TrackRow",
+      "repeat": true
+    },
+    {
+      "type": "renders",
+      "from": "screen:player/NowPlaying",
+      "to": "comp:player/SeekBar",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:player/NowPlaying",
+      "to": "comp:player/Transport",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:player/Queue",
+      "to": "comp:queue/QueueRow",
+      "repeat": true
+    },
+    {
+      "type": "handles",
+      "from": "screen:library/Library",
+      "to": "trig:library/RowTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:detail/PlaylistDetail",
+      "to": "trig:detail/PlayTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "comp:detail/TrackRow",
+      "to": "trig:detail/TrackTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "comp:player/MiniBar",
+      "to": "trig:mini/BarTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "comp:player/MiniBar",
+      "to": "trig:mini/PlayPauseTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "comp:player/Transport",
+      "to": "trig:player/PlayPauseTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "comp:player/Transport",
+      "to": "trig:player/NextTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "comp:player/SeekBar",
+      "to": "trig:player/SeekDrag",
+      "event": "change"
+    },
+    {
+      "type": "handles",
+      "from": "comp:player/SeekBar",
+      "to": "trig:player/SeekRelease",
+      "event": "dragDismiss"
+    },
+    {
+      "type": "handles",
+      "from": "screen:player/NowPlaying",
+      "to": "trig:player/QueueTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "comp:queue/QueueRow",
+      "to": "trig:queue/RowDrag",
+      "event": "longPress"
+    },
+    {
+      "type": "handles",
+      "from": "comp:queue/QueueRow",
+      "to": "trig:queue/RemoveTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:player/NowPlaying",
+      "to": "trig:player/Tick",
+      "event": "timer"
+    },
+    {
+      "type": "binds",
+      "from": "comp:player/MiniBar",
+      "to": "store:PlayerStore"
+    },
+    {
+      "type": "binds",
+      "from": "comp:player/SeekBar",
+      "to": "store:PlayerStore"
+    },
+    {
+      "type": "binds",
+      "from": "comp:player/SeekBar",
+      "to": "vs:player/Scrub"
+    },
+    {
+      "type": "binds",
+      "from": "comp:player/Transport",
+      "to": "store:PlayerStore"
+    },
+    {
+      "type": "binds",
+      "from": "screen:player/NowPlaying",
+      "to": "store:PlayerStore"
+    },
+    {
+      "type": "binds",
+      "from": "screen:player/NowPlaying",
+      "to": "vs:player/ArtworkLoad"
+    },
+    {
+      "type": "binds",
+      "from": "screen:player/Queue",
+      "to": "store:PlayerStore"
+    },
+    {
+      "type": "binds",
+      "from": "screen:player/Queue",
+      "to": "store:QueueStore"
+    },
+    {
+      "type": "binds",
+      "from": "screen:library/Library",
+      "to": "store:LibraryStore"
+    },
+    {
+      "type": "binds",
+      "from": "screen:detail/PlaylistDetail",
+      "to": "store:LibraryStore",
+      "scopedBy": "LibraryStore.selectedPlaylistId"
+    },
+    {
+      "type": "fires",
+      "from": "trig:library/RowTap",
+      "to": "act:detail/OpenDetail",
+      "seq": 0,
+      "scopedBy": "row.playlistId"
+    },
+    {
+      "type": "fires",
+      "from": "trig:detail/PlayTap",
+      "to": "act:detail/PlayPlaylist",
+      "seq": 0,
+      "scopedBy": "LibraryStore.selectedPlaylistId"
+    },
+    {
+      "type": "fires",
+      "from": "trig:detail/TrackTap",
+      "to": "act:detail/PlayTrack",
+      "seq": 0,
+      "scopedBy": "row.trackId"
+    },
+    {
+      "type": "fires",
+      "from": "trig:mini/BarTap",
+      "to": "act:mini/ExpandPlayer",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:mini/PlayPauseTap",
+      "to": "act:player/TogglePlayPause",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:player/PlayPauseTap",
+      "to": "act:player/TogglePlayPause",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:player/NextTap",
+      "to": "act:player/SkipNext",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:player/SeekDrag",
+      "to": "act:player/UpdateScrub",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:player/SeekRelease",
+      "to": "act:player/CommitSeek",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:player/QueueTap",
+      "to": "act:player/OpenQueue",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:queue/RowDrag",
+      "to": "act:queue/ReorderTrack",
+      "seq": 0,
+      "scopedBy": "row.trackId"
+    },
+    {
+      "type": "fires",
+      "from": "trig:queue/RemoveTap",
+      "to": "act:queue/RemoveTrack",
+      "seq": 0,
+      "scopedBy": "row.trackId"
+    },
+    {
+      "type": "fires",
+      "from": "trig:player/Tick",
+      "to": "act:player/AdvancePosition",
+      "seq": 0
+    },
+    {
+      "type": "navigates",
+      "from": "act:detail/OpenDetail",
+      "to": "screen:detail/PlaylistDetail",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:detail/PlayPlaylist",
+      "to": "screen:player/NowPlaying",
+      "present": "fullScreenCover"
+    },
+    {
+      "type": "navigates",
+      "from": "act:detail/PlayTrack",
+      "to": "screen:player/NowPlaying",
+      "present": "fullScreenCover"
+    },
+    {
+      "type": "navigates",
+      "from": "act:mini/ExpandPlayer",
+      "to": "screen:player/NowPlaying",
+      "present": "fullScreenCover"
+    },
+    {
+      "type": "navigates",
+      "from": "act:player/OpenQueue",
+      "to": "screen:player/Queue",
+      "present": "sheet"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:player/TogglePlayPause",
+      "to": "assert:player/HasCurrentTrack",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:player/SkipNext",
+      "to": "assert:player/HasCurrentTrack",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:player/CommitSeek",
+      "to": "assert:player/ScrubValid",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:player/SkipNext",
+      "to": "assert:queue/HasNext",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:detail/PlayTrack",
+      "to": "policy:player/OnDemandEntitlement",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "op:player/ResolveStream",
+      "to": "policy:player/AudioFocus",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "op:player/ResolveStream",
+      "to": "assert:player/TrackAvailable",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "op:player/Scrobble",
+      "to": "policy:account/AuthedSession",
+      "polarity": "require"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:player/ScrubValid",
+      "to": "vs:player/Scrub"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:player/ScrubValid",
+      "to": "store:PlayerStore"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:player/HasCurrentTrack",
+      "to": "store:PlayerStore"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:queue/HasNext",
+      "to": "store:QueueStore"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:player/TrackAvailable",
+      "to": "store:LibraryStore"
+    },
+    {
+      "type": "setsViewState",
+      "from": "act:player/UpdateScrub",
+      "to": "vs:player/Scrub"
+    },
+    {
+      "type": "writes",
+      "from": "act:detail/PlayPlaylist",
+      "to": "store:QueueStore",
+      "mode": "set"
+    },
+    {
+      "type": "writes",
+      "from": "act:detail/PlayPlaylist",
+      "to": "store:PlayerStore",
+      "mode": "set"
+    },
+    {
+      "type": "invokes",
+      "from": "act:detail/PlayPlaylist",
+      "to": "op:player/ResolveStream",
+      "awaits": true
+    },
+    {
+      "type": "emits",
+      "from": "act:detail/PlayPlaylist",
+      "to": "fx:analytics/PlayStarted",
+      "effect": "analytics"
+    },
+    {
+      "type": "writes",
+      "from": "act:detail/PlayTrack",
+      "to": "store:QueueStore",
+      "mode": "set"
+    },
+    {
+      "type": "writes",
+      "from": "act:detail/PlayTrack",
+      "to": "store:PlayerStore",
+      "mode": "set"
+    },
+    {
+      "type": "invokes",
+      "from": "act:detail/PlayTrack",
+      "to": "op:player/ResolveStream",
+      "awaits": true
+    },
+    {
+      "type": "writes",
+      "from": "act:player/TogglePlayPause",
+      "to": "store:PlayerStore",
+      "mode": "toggle",
+      "optimistic": true
+    },
+    {
+      "type": "emits",
+      "from": "act:player/TogglePlayPause",
+      "to": "fx:haptic/Transport",
+      "effect": "haptic"
+    },
+    {
+      "type": "writes",
+      "from": "act:player/SkipNext",
+      "to": "store:QueueStore",
+      "mode": "set"
+    },
+    {
+      "type": "writes",
+      "from": "act:player/SkipNext",
+      "to": "store:PlayerStore",
+      "mode": "set"
+    },
+    {
+      "type": "invokes",
+      "from": "act:player/SkipNext",
+      "to": "op:player/ResolveStream",
+      "awaits": true
+    },
+    {
+      "type": "emits",
+      "from": "act:player/SkipNext",
+      "to": "fx:haptic/Transport",
+      "effect": "haptic"
+    },
+    {
+      "type": "writes",
+      "from": "act:player/CommitSeek",
+      "to": "store:PlayerStore",
+      "mode": "set"
+    },
+    {
+      "type": "writes",
+      "from": "act:queue/ReorderTrack",
+      "to": "store:QueueStore",
+      "mode": "set"
+    },
+    {
+      "type": "writes",
+      "from": "act:queue/RemoveTrack",
+      "to": "store:QueueStore",
+      "mode": "delete"
+    },
+    {
+      "type": "writes",
+      "from": "act:player/AdvancePosition",
+      "to": "store:PlayerStore",
+      "mode": "set"
+    },
+    {
+      "type": "produces",
+      "from": "op:player/ResolveStream",
+      "to": "store:PlayerStore",
+      "artifact": "streamUrl+metadata"
+    },
+    {
+      "type": "reads",
+      "from": "op:player/Scrobble",
+      "to": "store:PlayerStore",
+      "cachePolicy": "fresh"
+    },
+    {
+      "type": "x-behavior:reconciles",
+      "from": "op:player/ResolveStream",
+      "to": "store:PlayerStore",
+      "onFailure": "rollback"
+    },
+    {
+      "type": "handles",
+      "from": "screen:library/Library",
+      "to": "trig:library/SearchTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:library/Library",
+      "to": "trig:library/LikedTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:library/Library",
+      "to": "trig:library/SettingsTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:detail/PlaylistDetail",
+      "to": "trig:detail/ArtistTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:player/NowPlaying",
+      "to": "trig:player/LyricsTap",
+      "event": "tap"
+    },
+    {
+      "type": "fires",
+      "from": "trig:library/SearchTap",
+      "to": "act:search/OpenSearch",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:library/LikedTap",
+      "to": "act:library/OpenLiked",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:library/SettingsTap",
+      "to": "act:settings/OpenSettings",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:detail/ArtistTap",
+      "to": "act:artist/OpenArtist",
+      "seq": 0,
+      "scopedBy": "playlist.artistId"
+    },
+    {
+      "type": "fires",
+      "from": "trig:player/LyricsTap",
+      "to": "act:player/OpenLyrics",
+      "seq": 0
+    },
+    {
+      "type": "navigates",
+      "from": "act:search/OpenSearch",
+      "to": "screen:search/Search",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:library/OpenLiked",
+      "to": "screen:library/LikedSongs",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:settings/OpenSettings",
+      "to": "screen:settings/Settings",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:artist/OpenArtist",
+      "to": "screen:artist/Artist",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:player/OpenLyrics",
+      "to": "screen:player/Lyrics",
+      "present": "sheet"
+    },
+    {
+      "type": "binds",
+      "from": "screen:search/Search",
+      "to": "store:LibraryStore"
+    },
+    {
+      "type": "binds",
+      "from": "screen:library/LikedSongs",
+      "to": "store:LibraryStore"
+    },
+    {
+      "type": "binds",
+      "from": "screen:player/Lyrics",
+      "to": "store:PlayerStore"
+    }
+  ]
+}

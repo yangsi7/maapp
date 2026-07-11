@@ -1,0 +1,17 @@
+{
+  "diff_of": ["graph.step2.json", "graph.step3.json"],
+  "source_commit": "944feb2b fix(webhooks): treat 23505 duplicate-key as idempotent no-op, not refund (#1033)",
+  "nodes_added": [],
+  "nodes_removed": [],
+  "nodes_changed": {
+    "assert:webhook/NotDuplicate": {
+      "intent": {
+        "from": "No existing orders for this stripe_checkout_session_id; idempotency guard against concurrent webhook delivery.",
+        "to": "No existing orders for this stripe_checkout_session_id; idempotency guard against concurrent webhook delivery. SELECT pre-check is non-atomic; DB unique constraints (orders_unique_pi_listing/_session_listing/_free_listing) are the atomic backstop — a 23505 on any of them is an idempotent no-op (skip refund AND listing release), never a refund."
+      }
+    }
+  },
+  "edges_added": [],
+  "edges_removed": [],
+  "edges_changed": []
+}

@@ -1,0 +1,187 @@
+---
+source: tests/render.rs
+expression: "render_out(&[\"storyboard\", \"--ascii\", \"examples/chat.json\"])"
+---
+================================================================================
+                         STORYBOARD — Chat screen flow                          
+                   (screen-first projection of the app-graph)                   
+================================================================================
+nav containers (swimlane, not frames): (none)
+schema chat-graph v1.3  ·  96 nodes / 135 edges
+
+JOURNEY LANES (left -> right):  L0 depth 0  ->  L1 depth 1  ->  L2 depth 2  ->  L3 depth 3  ->  L4 depth 4
+
+--------------------------------------------------------------------------------
+LANE L0: depth 0
+--------------------------------------------------------------------------------
+  +------------------------------+
+  | ConversationList             |
+  |  [chat]                      |
+  +------------------------------+
+  |  : ConversationRow xN :      |
+  +==============================+
+  | binds: ConversationStore     |
+  | writes: ConversationStore    |
+  +------------------------------+
+
+--------------------------------------------------------------------------------
+LANE L1: depth 1
+--------------------------------------------------------------------------------
+  +------------------------------+
+  | NewConversation              |
+  |  [chat]                      |
+  +------------------------------+
+  |  [ (view body) ]             |
+  +==============================+
+  | binds: ContactsStore         |
+  | writes: -                    |
+  +------------------------------+
+
+  +------------------------------+
+  | Search                       |
+  |  [chat]                      |
+  +------------------------------+
+  |  [ (view body) ]             |
+  +==============================+
+  | binds: ConversationStore     |
+  | writes: -                    |
+  +------------------------------+
+
+  +------------------------------+
+  | Settings                     |
+  |  [chat]                      |
+  +------------------------------+
+  |  [ (view body) ]             |
+  +==============================+
+  | binds: CurrentUserStore      |
+  | writes: -                    |
+  +------------------------------+
+
+  +------------------------------+
+  | Thread                       |
+  |  [chat]                      |
+  +------------------------------+
+  |  [ ComposeBar ]              |
+  |  : MessageBubble xN :        |
+  |  [ MessageList ]             |
+  |  [ TypingIndicator ]         |
+  +==============================+
+  | binds: ThreadStore, vs:*     |
+  | writes: ThreadStore, InboundB|
+  +------------------------------+
+
+--------------------------------------------------------------------------------
+LANE L2: depth 2
+--------------------------------------------------------------------------------
+  +------------------------------+
+  | ConversationInfo             |
+  |  [chat]                      |
+  +------------------------------+
+  |  [ (view body) ]             |
+  +==============================+
+  | binds: ConversationStore, Not|
+  | writes: -                    |
+  +------------------------------+
+
+  +------------------------------+
+  | NewGroup                     |
+  |  [chat]                      |
+  +------------------------------+
+  |  [ (view body) ]             |
+  +==============================+
+  | binds: -                     |
+  | writes: ConversationStore    |
+  +------------------------------+
+
+--------------------------------------------------------------------------------
+LANE L3: depth 3
+--------------------------------------------------------------------------------
+  +------------------------------+
+  | Profile                      |
+  |  [chat]                      |
+  +------------------------------+
+  |  [ (view body) ]             |
+  +==============================+
+  | binds: ContactsStore         |
+  | writes: -                    |
+  +------------------------------+
+
+  +------------------------------+
+  | SharedMedia                  |
+  |  [chat]                      |
+  +------------------------------+
+  |  [ (view body) ]             |
+  +==============================+
+  | binds: ThreadStore           |
+  | writes: -                    |
+  +------------------------------+
+
+--------------------------------------------------------------------------------
+LANE L4: depth 4
+--------------------------------------------------------------------------------
+  +------------------------------+
+  | MediaViewer                  |
+  |  [chat]                      |
+  +------------------------------+
+  |  [ (view body) ]             |
+  +==============================+
+  | binds: -                     |
+  | writes: -                    |
+  +------------------------------+
+
+--------------------------------------------------------------------------------
+LANE [boundary]: OS / external handoff surfaces
+--------------------------------------------------------------------------------
+  +~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+
+  | >> AttachmentSheet           |
+  |  [x-ext:ExternalSurface]     |
+  |  outcome: success            |
+  +~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+
+
+================================================================================
+NAVIGATION ARROWS (collapsed handles->fires->navigates)
+================================================================================
+  FROM             -> TO               CONTROL/MODE         GUARD
+  ----------------------------------------------------------------------------
+  ComposeBar       -> AttachmentSheet  AttachTap/sheet      
+  MessageBubble    -> MediaViewer      MediaTap/full        
+  ConversationInfo -> Profile          ParticipantTap/push  
+  ConversationInfo -> SharedMedia      MediaTap/push        
+  ConversationList -> NewConversation  NewMessageTap/sheet  
+  ConversationList -> Search           SearchTap/push       
+  ConversationList -> Settings         SettingsTap/push     
+  ConversationList -> Thread           ComposeTap/push      
+  ConversationList -> Thread           RowTap/push          
+  NewConversation  -> NewGroup         NewGroupTap/push     
+  NewConversation  -> Thread           RecipientTap/push    
+  NewGroup         -> Thread           CreateTap/push       
+  Search           -> Thread           ResultTap/push       
+  SharedMedia      -> MediaViewer      ThumbTap/full        
+  Thread           -> ConversationInfo TitleTap/push        
+
+RETURN ARROWS (dismiss = thin return to presenter; returnsTo = boundary outcome-branch):
+  ConversationInfo ~> Thread           Back (dismiss)
+  MediaViewer      ~> SharedMedia      Back (dismiss)
+  NewConversation  ~> ConversationList Cancel (dismiss)
+  NewGroup         ~> NewConversation  Back (dismiss)
+  Profile          ~> ConversationInfo Back (dismiss)
+  Search           ~> ConversationList Back (dismiss)
+  Settings         ~> ConversationList Back (dismiss)
+  SharedMedia      ~> ConversationInfo Back (dismiss)
+  Thread           ~> Search           Back (dismiss)
+  AttachmentSheet  ~> Thread           when=cancelled/root (returnsTo)
+  AttachmentSheet  ~> Thread           when=failed/root (returnsTo)
+  AttachmentSheet  ~> Thread           when=success/root (returnsTo)
+
+================================================================================
+PIPELINE TAIL (x-pipeline:feeds)
+================================================================================
+  [INGEST]
+  produces:
+    [INGEST] -> ThreadStore            (inboundMessages)
+
+LEGEND:
+  [ X ]    component block (renders edge)   : X xN :  repeat:true
+  binds:   StateStores the frame reads-through   writes: mutations it owns (! irreversible)
+  ->       navigates    ~>  dismiss/return    LOCK[..]  guard assertion
+================================================================================

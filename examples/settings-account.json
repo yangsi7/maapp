@@ -1,0 +1,1017 @@
+{
+  "meta": {
+    "schema": "maapp-graph",
+    "version": "1.4",
+    "vocab": "spec/EDGE-VOCABULARY.md",
+    "app": "mobile account settings (settings hub -> profile edit -> email & password -> notifications -> connected accounts/privacy -> sign-out / delete-account confirm)",
+    "mobbin_ref": "Spotify 'Settings' hub flow 14278c8e-96aa-4d90-83ff-50413514231e + 'Account' detail flow 75000c93-ae18-4b30-a05f-5b398bab5e9e; profile-edit shape modeled after Spotify 'Editing profile' flow c912fa5a-c1c3-420e-8f69-3d66407a343d",
+    "query": "graph query <node|neighbors|blast-radius|trace|view|orphans> [args] <file>",
+    "validate": "graph validate <file>"
+  },
+  "schema": "maapp-graph",
+  "version": "1.4",
+  "nodeKindRegistry": {
+    "x-ext:ExternalSurface": {
+      "kind": "x-ext:ExternalSurface",
+      "layer": "boundary",
+      "legal_in_edges": [
+        "navigates"
+      ],
+      "legal_out_edges": [
+        "returnsTo",
+        "fires",
+        "emits"
+      ],
+      "attrs": {
+        "surfaceKind": [
+          "osShareSheet",
+          "applePaySheet",
+          "oauthRedirect",
+          "threeDSChallenge",
+          "externalApp"
+        ],
+        "outcome": [
+          "success",
+          "cancelled",
+          "failed"
+        ]
+      }
+    },
+    "x-ext:PermissionGate": {
+      "kind": "x-ext:PermissionGate",
+      "layer": "boundary",
+      "legal_in_edges": [
+        "navigates",
+        "fires"
+      ],
+      "legal_out_edges": [
+        "returnsTo",
+        "fires",
+        "emits"
+      ],
+      "attrs": {
+        "outcome": [
+          "granted",
+          "denied",
+          "limited"
+        ],
+        "persistent": true,
+        "rePromptable": true
+      }
+    }
+  },
+  "edgeRegistry": {
+    "x-behavior:reconciles": {
+      "ns": "x-behavior",
+      "from_kinds": [
+        "BackendOp"
+      ],
+      "to_kinds": [
+        "StateStore"
+      ],
+      "family": "COMMAND",
+      "subPropertyOf": "writes",
+      "attrs": {
+        "onFailure": [
+          "rollback",
+          "retain",
+          "escalate"
+        ]
+      }
+    },
+    "x-ext:returnsTo": {
+      "ns": "x-ext",
+      "from_kinds": [
+        "x-ext:ExternalSurface",
+        "x-ext:PermissionGate"
+      ],
+      "to_kinds": [
+        "Screen",
+        "NavContainer"
+      ],
+      "family": "NAV",
+      "subPropertyOf": "navigates",
+      "attrs": {
+        "when": "<outcome-value|\"else\">",
+        "writesBack": "<StateStore.key>"
+      }
+    }
+  },
+  "nodeKinds": {
+    "surface": [
+      "Screen",
+      "Component",
+      "NavContainer"
+    ],
+    "logic": [
+      "Trigger",
+      "NavAction",
+      "MutationAction",
+      "EffectAction",
+      "ViewStateAction",
+      "QueryAction",
+      "ViewState",
+      "Assertion"
+    ],
+    "substrate": [
+      "StateStore",
+      "DataSource",
+      "BackendOp",
+      "PipelineStage",
+      "SideEffect"
+    ],
+    "policy": [
+      "Policy"
+    ],
+    "boundary": []
+  },
+  "nodes": {
+    "surface": {
+      "screen:settings/Hub": {
+        "kind": "Screen",
+        "intent": "Settings hub list: profile header + grouped rows (Account, Notifications, Privacy & social, Connected apps) radiating to detail screens; Log out button at the bottom.",
+        "refs": {}
+      },
+      "screen:settings/Account": {
+        "kind": "Screen",
+        "intent": "Account detail: username/email summary, plan, and rows into Edit profile / Change email / Change password / Close account.",
+        "refs": {}
+      },
+      "screen:settings/EditProfile": {
+        "kind": "Screen",
+        "intent": "Edit-profile sheet: display name + avatar fields with inline validation; Save dismisses back to Account.",
+        "refs": {}
+      },
+      "screen:settings/ChangeEmail": {
+        "kind": "Screen",
+        "intent": "Change-email sheet: new-email field + current-password confirm; Save dismisses back to Account.",
+        "refs": {}
+      },
+      "screen:settings/ChangePassword": {
+        "kind": "Screen",
+        "intent": "Change-password sheet: current + new + confirm fields with strength check; Save dismisses back to Account.",
+        "refs": {}
+      },
+      "screen:settings/Notifications": {
+        "kind": "Screen",
+        "intent": "Notification preferences: toggle list (push / email / product updates); each toggle persists immediately.",
+        "refs": {}
+      },
+      "screen:settings/Privacy": {
+        "kind": "Screen",
+        "intent": "Privacy & social detail: visibility toggles + Connected accounts row + Manage data row.",
+        "refs": {}
+      },
+      "screen:settings/ConnectedAccounts": {
+        "kind": "Screen",
+        "intent": "Connected accounts list: linked social providers with Connect/Disconnect actions; Connect hands off to an OAuth surface.",
+        "refs": {}
+      },
+      "screen:settings/CloseAccountConfirm": {
+        "kind": "Screen",
+        "intent": "Delete/close-account confirmation: warning copy + type-to-confirm field; Delete CTA is irreversible.",
+        "refs": {}
+      },
+      "screen:settings/SignedOut": {
+        "kind": "Screen",
+        "intent": "Signed-out landing screen reached after Log out or account deletion (replace-root).",
+        "refs": {}
+      },
+      "comp:settings/ProfileHeader": {
+        "kind": "Component",
+        "intent": "Hub profile header: avatar + display name + 'View profile' chevron, bound to the account store.",
+        "refs": {}
+      },
+      "comp:settings/SectionList": {
+        "kind": "Component",
+        "intent": "Grouped settings row list rendered on the hub (Account / Notifications / Privacy / Connected apps).",
+        "refs": {}
+      },
+      "comp:settings/NotificationToggleList": {
+        "kind": "Component",
+        "intent": "Notification toggle rows bound to the preferences store.",
+        "refs": {}
+      },
+      "comp:settings/LogOutButton": {
+        "kind": "Component",
+        "intent": "Primary Log out button on the hub; disabled while a sign-out is in flight.",
+        "refs": {}
+      }
+    },
+    "logic": {
+      "trig:hub/AccountRowTap": {
+        "kind": "Trigger",
+        "intent": "User taps the Account row on the hub.",
+        "refs": {}
+      },
+      "trig:hub/NotificationsRowTap": {
+        "kind": "Trigger",
+        "intent": "User taps the Notifications row on the hub.",
+        "refs": {}
+      },
+      "trig:hub/PrivacyRowTap": {
+        "kind": "Trigger",
+        "intent": "User taps the Privacy & social row on the hub.",
+        "refs": {}
+      },
+      "trig:hub/LogOutTap": {
+        "kind": "Trigger",
+        "intent": "User taps Log out on the hub.",
+        "refs": {}
+      },
+      "trig:account/EditProfileTap": {
+        "kind": "Trigger",
+        "intent": "User taps Edit profile on the account screen.",
+        "refs": {}
+      },
+      "trig:account/ChangeEmailTap": {
+        "kind": "Trigger",
+        "intent": "User taps Change email on the account screen.",
+        "refs": {}
+      },
+      "trig:account/ChangePasswordTap": {
+        "kind": "Trigger",
+        "intent": "User taps Change password on the account screen.",
+        "refs": {}
+      },
+      "trig:account/CloseAccountTap": {
+        "kind": "Trigger",
+        "intent": "User taps Close account on the account screen.",
+        "refs": {}
+      },
+      "trig:profile/FieldChange": {
+        "kind": "Trigger",
+        "intent": "User edits a profile field (display name / avatar).",
+        "refs": {}
+      },
+      "trig:profile/SaveTap": {
+        "kind": "Trigger",
+        "intent": "User taps Save on the edit-profile sheet.",
+        "refs": {}
+      },
+      "trig:email/SaveTap": {
+        "kind": "Trigger",
+        "intent": "User taps Save on the change-email sheet.",
+        "refs": {}
+      },
+      "trig:password/SaveTap": {
+        "kind": "Trigger",
+        "intent": "User taps Save on the change-password sheet.",
+        "refs": {}
+      },
+      "trig:notif/ToggleChange": {
+        "kind": "Trigger",
+        "intent": "User flips a notification toggle.",
+        "refs": {}
+      },
+      "trig:privacy/ConnectedAccountsTap": {
+        "kind": "Trigger",
+        "intent": "User taps Connected accounts on the privacy screen.",
+        "refs": {}
+      },
+      "trig:connected/ConnectTap": {
+        "kind": "Trigger",
+        "intent": "User taps Connect on a social provider row.",
+        "refs": {}
+      },
+      "trig:close/ConfirmTap": {
+        "kind": "Trigger",
+        "intent": "User taps Delete on the close-account confirmation (gated by type-to-confirm match).",
+        "refs": {}
+      },
+      "act:hub/GoToAccount": {
+        "kind": "NavAction",
+        "intent": "Push the Account detail from the hub.",
+        "refs": {}
+      },
+      "act:hub/GoToNotifications": {
+        "kind": "NavAction",
+        "intent": "Push the Notifications detail from the hub.",
+        "refs": {}
+      },
+      "act:hub/GoToPrivacy": {
+        "kind": "NavAction",
+        "intent": "Push the Privacy & social detail from the hub.",
+        "refs": {}
+      },
+      "act:hub/LogOut": {
+        "kind": "MutationAction",
+        "intent": "Multi-effect: clear the session store, emit a sign-out analytics event, AND replace-root to the signed-out landing (guarded by not-already-signing-out).",
+        "refs": {}
+      },
+      "act:account/PresentEditProfile": {
+        "kind": "NavAction",
+        "intent": "Present the edit-profile sheet.",
+        "refs": {}
+      },
+      "act:account/PresentChangeEmail": {
+        "kind": "NavAction",
+        "intent": "Present the change-email sheet.",
+        "refs": {}
+      },
+      "act:account/PresentChangePassword": {
+        "kind": "NavAction",
+        "intent": "Present the change-password sheet.",
+        "refs": {}
+      },
+      "act:account/GoToCloseAccount": {
+        "kind": "NavAction",
+        "intent": "Push the close-account confirmation screen.",
+        "refs": {}
+      },
+      "act:profile/UpdateField": {
+        "kind": "ViewStateAction",
+        "intent": "Write the edited profile field into the local edit-profile view state.",
+        "refs": {}
+      },
+      "act:profile/SaveAndClose": {
+        "kind": "MutationAction",
+        "intent": "Multi-effect: persist the profile to the account store AND dismiss back to Account in one tap (guarded by form-valid).",
+        "refs": {}
+      },
+      "act:email/SaveAndClose": {
+        "kind": "MutationAction",
+        "intent": "Multi-effect: invoke the change-email backend op, write the pending email to the account store, AND dismiss back to Account (guarded by password-confirmed).",
+        "refs": {}
+      },
+      "act:password/SaveAndClose": {
+        "kind": "MutationAction",
+        "intent": "Multi-effect: invoke the change-password backend op, emit a security analytics event, AND dismiss back to Account (guarded by password-strong).",
+        "refs": {}
+      },
+      "act:notif/Toggle": {
+        "kind": "MutationAction",
+        "intent": "Optimistically write the flipped notification preference to the preferences store; the backend op reconciles.",
+        "refs": {}
+      },
+      "act:privacy/GoToConnectedAccounts": {
+        "kind": "NavAction",
+        "intent": "Push the connected-accounts list from the privacy screen.",
+        "refs": {}
+      },
+      "act:connected/StartConnect": {
+        "kind": "NavAction",
+        "intent": "Hand off to the OAuth provider surface to link a social account.",
+        "refs": {}
+      },
+      "act:close/DeleteAccount": {
+        "kind": "MutationAction",
+        "intent": "Multi-effect: invoke the irreversible delete-account backend op, clear the session store, emit analytics, AND replace-root to the signed-out landing (guarded by confirm-match).",
+        "refs": {}
+      },
+      "vs:profile/Form": {
+        "kind": "ViewState",
+        "intent": "Local edit-profile field state (display name / avatar) before persistence.",
+        "refs": {},
+        "attrs": {
+          "phase": "editing"
+        }
+      },
+      "vs:session/SigningOut": {
+        "kind": "ViewState",
+        "intent": "In-flight sign-out flag; disables Log out to block a double sign-out.",
+        "refs": {},
+        "attrs": {
+          "phase": "live"
+        }
+      },
+      "assert:profile/Valid": {
+        "kind": "Assertion",
+        "intent": "Edit-profile form is valid (display name non-empty / well-formed). Derives from the live form view state.",
+        "refs": {}
+      },
+      "assert:email/PasswordConfirmed": {
+        "kind": "Assertion",
+        "intent": "The current-password confirmation matches before an email change is submitted.",
+        "refs": {}
+      },
+      "assert:password/Strong": {
+        "kind": "Assertion",
+        "intent": "The new password passes the strength + confirm-match check.",
+        "refs": {}
+      },
+      "assert:close/ConfirmMatch": {
+        "kind": "Assertion",
+        "intent": "The type-to-confirm text matches the required phrase (delete-account guard).",
+        "refs": {}
+      },
+      "assert:session/NotSigningOut": {
+        "kind": "Assertion",
+        "intent": "No sign-out is currently in flight (duplicate sign-out guard).",
+        "refs": {}
+      }
+    },
+    "substrate": {
+      "store:AccountStore": {
+        "kind": "StateStore",
+        "intent": "Account profile: display name, avatar, email, plan.",
+        "refs": {}
+      },
+      "store:PrefsStore": {
+        "kind": "StateStore",
+        "intent": "Notification + privacy preferences (push / email / product-update toggles, visibility).",
+        "refs": {}
+      },
+      "store:SessionStore": {
+        "kind": "StateStore",
+        "intent": "Authenticated session (token, account id, connected providers).",
+        "refs": {}
+      },
+      "op:account/ChangeEmail": {
+        "kind": "BackendOp",
+        "intent": "Server change-email call: validates the password, sends a verification email, stages the new address.",
+        "refs": {}
+      },
+      "op:account/ChangePassword": {
+        "kind": "BackendOp",
+        "intent": "Server change-password call: rotates credentials and invalidates other sessions.",
+        "refs": {}
+      },
+      "op:account/Delete": {
+        "kind": "BackendOp",
+        "intent": "Server delete-account call: permanently removes the account and data. Irreversible, non-idempotent.",
+        "refs": {}
+      },
+      "op:prefs/SyncToggle": {
+        "kind": "BackendOp",
+        "intent": "Server preference-sync call reconciling the optimistic toggle write.",
+        "refs": {}
+      },
+      "fx:analytics/SignedOut": {
+        "kind": "SideEffect",
+        "intent": "Analytics event when the user signs out.",
+        "refs": {}
+      },
+      "fx:analytics/PasswordChanged": {
+        "kind": "SideEffect",
+        "intent": "Security analytics event when the password is changed.",
+        "refs": {}
+      },
+      "fx:analytics/AccountDeleted": {
+        "kind": "SideEffect",
+        "intent": "Analytics event when the account is deleted.",
+        "refs": {}
+      },
+      "fx:analytics/AccountLinked": {
+        "kind": "SideEffect",
+        "intent": "Analytics event for the connect-account OAuth outcome.",
+        "refs": {}
+      }
+    },
+    "policy": {
+      "policy:auth/Reauth": {
+        "kind": "Policy",
+        "intent": "Sensitive-action re-authentication gate: email/password change and account deletion require a recent credential confirmation. DEFERRED-status posture gate, not a runtime predicate.",
+        "attrs": {
+          "status": "deferred",
+          "gate": "binary"
+        },
+        "refs": {}
+      }
+    },
+    "boundary": {
+      "x-ext:connected/OAuthProvider": {
+        "kind": "x-ext:ExternalSurface",
+        "intent": "OAuth provider surface for linking a social account: control leaves the app; returns keyed on the consent outcome.",
+        "refs": {},
+        "attrs": {
+          "surfaceKind": "oauthRedirect",
+          "outcome": "success"
+        }
+      }
+    }
+  },
+  "edges": [
+    {
+      "type": "handles",
+      "from": "screen:settings/Hub",
+      "to": "trig:hub/AccountRowTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:settings/Hub",
+      "to": "trig:hub/NotificationsRowTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:settings/Hub",
+      "to": "trig:hub/PrivacyRowTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:settings/Hub",
+      "to": "trig:hub/LogOutTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:settings/Account",
+      "to": "trig:account/EditProfileTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:settings/Account",
+      "to": "trig:account/ChangeEmailTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:settings/Account",
+      "to": "trig:account/ChangePasswordTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:settings/Account",
+      "to": "trig:account/CloseAccountTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:settings/EditProfile",
+      "to": "trig:profile/FieldChange",
+      "event": "change"
+    },
+    {
+      "type": "handles",
+      "from": "screen:settings/EditProfile",
+      "to": "trig:profile/SaveTap",
+      "event": "submit"
+    },
+    {
+      "type": "handles",
+      "from": "screen:settings/ChangeEmail",
+      "to": "trig:email/SaveTap",
+      "event": "submit"
+    },
+    {
+      "type": "handles",
+      "from": "screen:settings/ChangePassword",
+      "to": "trig:password/SaveTap",
+      "event": "submit"
+    },
+    {
+      "type": "handles",
+      "from": "screen:settings/Notifications",
+      "to": "trig:notif/ToggleChange",
+      "event": "change"
+    },
+    {
+      "type": "handles",
+      "from": "screen:settings/Privacy",
+      "to": "trig:privacy/ConnectedAccountsTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:settings/ConnectedAccounts",
+      "to": "trig:connected/ConnectTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:settings/CloseAccountConfirm",
+      "to": "trig:close/ConfirmTap",
+      "event": "submit"
+    },
+    {
+      "type": "renders",
+      "from": "screen:settings/Hub",
+      "to": "comp:settings/ProfileHeader",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:settings/Hub",
+      "to": "comp:settings/SectionList",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:settings/Hub",
+      "to": "comp:settings/LogOutButton",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:settings/Notifications",
+      "to": "comp:settings/NotificationToggleList",
+      "repeat": false
+    },
+    {
+      "type": "binds",
+      "from": "comp:settings/ProfileHeader",
+      "to": "store:AccountStore"
+    },
+    {
+      "type": "binds",
+      "from": "screen:settings/Account",
+      "to": "store:AccountStore"
+    },
+    {
+      "type": "binds",
+      "from": "screen:settings/EditProfile",
+      "to": "vs:profile/Form"
+    },
+    {
+      "type": "binds",
+      "from": "comp:settings/NotificationToggleList",
+      "to": "store:PrefsStore"
+    },
+    {
+      "type": "binds",
+      "from": "screen:settings/Privacy",
+      "to": "store:PrefsStore"
+    },
+    {
+      "type": "binds",
+      "from": "screen:settings/ConnectedAccounts",
+      "to": "store:SessionStore"
+    },
+    {
+      "type": "binds",
+      "from": "comp:settings/LogOutButton",
+      "to": "vs:session/SigningOut"
+    },
+    {
+      "type": "fires",
+      "from": "trig:hub/AccountRowTap",
+      "to": "act:hub/GoToAccount",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:hub/NotificationsRowTap",
+      "to": "act:hub/GoToNotifications",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:hub/PrivacyRowTap",
+      "to": "act:hub/GoToPrivacy",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:hub/LogOutTap",
+      "to": "act:hub/LogOut",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:account/EditProfileTap",
+      "to": "act:account/PresentEditProfile",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:account/ChangeEmailTap",
+      "to": "act:account/PresentChangeEmail",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:account/ChangePasswordTap",
+      "to": "act:account/PresentChangePassword",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:account/CloseAccountTap",
+      "to": "act:account/GoToCloseAccount",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:profile/FieldChange",
+      "to": "act:profile/UpdateField",
+      "seq": 0,
+      "scopedBy": "field.key"
+    },
+    {
+      "type": "fires",
+      "from": "trig:profile/SaveTap",
+      "to": "act:profile/SaveAndClose",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:email/SaveTap",
+      "to": "act:email/SaveAndClose",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:password/SaveTap",
+      "to": "act:password/SaveAndClose",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:notif/ToggleChange",
+      "to": "act:notif/Toggle",
+      "seq": 0,
+      "scopedBy": "pref.key"
+    },
+    {
+      "type": "fires",
+      "from": "trig:privacy/ConnectedAccountsTap",
+      "to": "act:privacy/GoToConnectedAccounts",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:connected/ConnectTap",
+      "to": "act:connected/StartConnect",
+      "seq": 0,
+      "scopedBy": "provider.id"
+    },
+    {
+      "type": "fires",
+      "from": "trig:close/ConfirmTap",
+      "to": "act:close/DeleteAccount",
+      "seq": 0
+    },
+    {
+      "type": "navigates",
+      "from": "act:hub/GoToAccount",
+      "to": "screen:settings/Account",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:hub/GoToNotifications",
+      "to": "screen:settings/Notifications",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:hub/GoToPrivacy",
+      "to": "screen:settings/Privacy",
+      "present": "push"
+    },
+    {
+      "type": "writes",
+      "from": "act:hub/LogOut",
+      "to": "store:SessionStore",
+      "mode": "delete"
+    },
+    {
+      "type": "emits",
+      "from": "act:hub/LogOut",
+      "to": "fx:analytics/SignedOut",
+      "effect": "analytics"
+    },
+    {
+      "type": "navigates",
+      "from": "act:hub/LogOut",
+      "to": "screen:settings/SignedOut",
+      "present": "replace-root"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:hub/LogOut",
+      "to": "assert:session/NotSigningOut",
+      "polarity": "require"
+    },
+    {
+      "type": "navigates",
+      "from": "act:account/PresentEditProfile",
+      "to": "screen:settings/EditProfile",
+      "present": "sheet"
+    },
+    {
+      "type": "navigates",
+      "from": "act:account/PresentChangeEmail",
+      "to": "screen:settings/ChangeEmail",
+      "present": "sheet"
+    },
+    {
+      "type": "navigates",
+      "from": "act:account/PresentChangePassword",
+      "to": "screen:settings/ChangePassword",
+      "present": "sheet"
+    },
+    {
+      "type": "navigates",
+      "from": "act:account/GoToCloseAccount",
+      "to": "screen:settings/CloseAccountConfirm",
+      "present": "push"
+    },
+    {
+      "type": "setsViewState",
+      "from": "act:profile/UpdateField",
+      "to": "vs:profile/Form"
+    },
+    {
+      "type": "writes",
+      "from": "act:profile/SaveAndClose",
+      "to": "store:AccountStore",
+      "mode": "set"
+    },
+    {
+      "type": "dismisses",
+      "from": "act:profile/SaveAndClose",
+      "to": "screen:settings/EditProfile",
+      "target": "self",
+      "writesBack": "AccountStore.profile"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:profile/SaveAndClose",
+      "to": "assert:profile/Valid",
+      "polarity": "require"
+    },
+    {
+      "type": "invokes",
+      "from": "act:email/SaveAndClose",
+      "to": "op:account/ChangeEmail",
+      "awaits": true,
+      "idempotent": true
+    },
+    {
+      "type": "writes",
+      "from": "act:email/SaveAndClose",
+      "to": "store:AccountStore",
+      "mode": "set"
+    },
+    {
+      "type": "dismisses",
+      "from": "act:email/SaveAndClose",
+      "to": "screen:settings/ChangeEmail",
+      "target": "self",
+      "writesBack": "AccountStore.pendingEmail"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:email/SaveAndClose",
+      "to": "assert:email/PasswordConfirmed",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:email/SaveAndClose",
+      "to": "policy:auth/Reauth",
+      "polarity": "require"
+    },
+    {
+      "type": "invokes",
+      "from": "act:password/SaveAndClose",
+      "to": "op:account/ChangePassword",
+      "awaits": true,
+      "idempotent": true
+    },
+    {
+      "type": "emits",
+      "from": "act:password/SaveAndClose",
+      "to": "fx:analytics/PasswordChanged",
+      "effect": "analytics"
+    },
+    {
+      "type": "dismisses",
+      "from": "act:password/SaveAndClose",
+      "to": "screen:settings/ChangePassword",
+      "target": "self"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:password/SaveAndClose",
+      "to": "assert:password/Strong",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:password/SaveAndClose",
+      "to": "policy:auth/Reauth",
+      "polarity": "require"
+    },
+    {
+      "type": "writes",
+      "from": "act:notif/Toggle",
+      "to": "store:PrefsStore",
+      "mode": "toggle",
+      "scopedBy": "pref.key",
+      "optimistic": true
+    },
+    {
+      "type": "invokes",
+      "from": "act:notif/Toggle",
+      "to": "op:prefs/SyncToggle",
+      "awaits": false,
+      "idempotent": true
+    },
+    {
+      "type": "navigates",
+      "from": "act:privacy/GoToConnectedAccounts",
+      "to": "screen:settings/ConnectedAccounts",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:connected/StartConnect",
+      "to": "x-ext:connected/OAuthProvider",
+      "present": "sheet"
+    },
+    {
+      "type": "x-ext:returnsTo",
+      "from": "x-ext:connected/OAuthProvider",
+      "to": "screen:settings/ConnectedAccounts",
+      "present": "push",
+      "when": "success",
+      "writesBack": "SessionStore.connectedProviders"
+    },
+    {
+      "type": "x-ext:returnsTo",
+      "from": "x-ext:connected/OAuthProvider",
+      "to": "screen:settings/ConnectedAccounts",
+      "present": "push",
+      "when": "cancelled"
+    },
+    {
+      "type": "x-ext:returnsTo",
+      "from": "x-ext:connected/OAuthProvider",
+      "to": "screen:settings/ConnectedAccounts",
+      "present": "push",
+      "when": "failed"
+    },
+    {
+      "type": "emits",
+      "from": "x-ext:connected/OAuthProvider",
+      "to": "fx:analytics/AccountLinked",
+      "effect": "analytics"
+    },
+    {
+      "type": "invokes",
+      "from": "act:close/DeleteAccount",
+      "to": "op:account/Delete",
+      "awaits": true,
+      "irreversible": true,
+      "idempotent": false
+    },
+    {
+      "type": "writes",
+      "from": "act:close/DeleteAccount",
+      "to": "store:SessionStore",
+      "mode": "delete"
+    },
+    {
+      "type": "emits",
+      "from": "act:close/DeleteAccount",
+      "to": "fx:analytics/AccountDeleted",
+      "effect": "analytics"
+    },
+    {
+      "type": "navigates",
+      "from": "act:close/DeleteAccount",
+      "to": "screen:settings/SignedOut",
+      "present": "replace-root"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:close/DeleteAccount",
+      "to": "assert:close/ConfirmMatch",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:close/DeleteAccount",
+      "to": "policy:auth/Reauth",
+      "polarity": "require"
+    },
+    {
+      "type": "x-behavior:reconciles",
+      "from": "op:prefs/SyncToggle",
+      "to": "store:PrefsStore",
+      "onFailure": "rollback"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:profile/Valid",
+      "to": "vs:profile/Form"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:email/PasswordConfirmed",
+      "to": "store:SessionStore"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:password/Strong",
+      "to": "store:SessionStore"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:close/ConfirmMatch",
+      "to": "store:AccountStore"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:session/NotSigningOut",
+      "to": "vs:session/SigningOut"
+    }
+  ]
+}

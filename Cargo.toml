@@ -1,0 +1,65 @@
+[package]
+name = "maapp"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.96"
+description = "Portable app-structure substrate for AI coding agents: a typed knowledge graph an agent reads instead of prose docs or raw source."
+license = "MIT"
+repository = "https://github.com/yangsi7/maapp"
+keywords = ["ai", "agents", "knowledge-graph", "app-structure", "cli"]
+categories = ["command-line-utilities", "development-tools"]
+
+[[bin]]
+name = "maapp"
+required-features = ["cli"]
+
+[features]
+default = ["cli"]
+# `cli` gates clap + the native binary entry point. Core graph/validate logic is
+# feature-free so it stays wasm-clean (no std::fs/net/time in the library core).
+cli = ["dep:clap"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+# `preserve_order` is enabled deliberately: the validator emits findings in graph
+# DOCUMENT order (the oracle iterates nodes in JSON insertion order), so node
+# insertion order genuinely IS part of the observable `--json` contract. This is
+# the documented exception in rust-conventions ("unless insertion order genuinely
+# IS the contract"). Canonical serialize stays byte-stable because it imposes its
+# own total order (BTreeMap nodes + edges sorted by (from,to,type)) at the emit
+# boundary, independent of the parsed object order.
+serde_json = { version = "1", features = ["preserve_order"] }
+thiserror = "2"
+clap = { version = "4", features = ["derive"], optional = true }
+
+# Future wasm seam (D-002: single static binary + WASM viz target). When the
+# wasm32 frontend lands, wasm-only deps (wasm-bindgen, serde-wasm-bindgen) go here.
+# The core library is kept free of std::fs/net/time so it compiles to wasm32 today.
+# [target.'cfg(target_arch = "wasm32")'.dependencies]
+# wasm-bindgen = "0.2"
+# serde-wasm-bindgen = "0.6"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# Bin-only context-rich exit messages live behind `anyhow` at the CLI boundary.
+# NEVER leaked into the lib (downstream + wasm + eval must `match` on EngineError).
+anyhow = "1"
+
+[dev-dependencies]
+insta = { version = "1", features = ["json", "redactions"] }
+insta-cmd = "0.6"
+assert_cmd = "2"
+predicates = "3"
+proptest = "1"
+tempfile = "3.27.0"
+
+# Curated clippy lints (RES-001 / rust-conventions): deny the correctness +
+# suspicious groups + a hand-picked few. Never blanket pedantic/nursery; never
+# #![deny(warnings)] in source (CI flags own that policy).
+[lints.clippy]
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+# Hand-picked individual lints that catch real determinism / API smells.
+unwrap_used = "warn"
+expect_used = "warn"
+todo = "warn"
+dbg_macro = "warn"

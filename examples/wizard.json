@@ -1,0 +1,772 @@
+{
+  "meta": {
+    "schema": "maapp-graph",
+    "version": "1.3",
+    "vocab": "spec/EDGE-VOCABULARY.md",
+    "query": "graph query <node|neighbors|blast-radius|trace|view|orphans> [args] <file>",
+    "validate": "graph validate <file>",
+    "app": "Wanderlog — multi-step trip-personalization onboarding wizard (mobbin flow 43df4d6b-29ef-484e-98bc-2164e5c193b7)"
+  },
+  "schema": "maapp-graph",
+  "version": "1.3",
+  "nodeKindRegistry": {
+    "x-ext:ExternalSurface": {
+      "kind": "x-ext:ExternalSurface",
+      "layer": "boundary",
+      "legal_in_edges": [
+        "navigates"
+      ],
+      "legal_out_edges": [
+        "returnsTo",
+        "fires",
+        "emits"
+      ],
+      "attrs": {
+        "surfaceKind": [
+          "osShareSheet",
+          "applePaySheet",
+          "oauthRedirect",
+          "threeDSChallenge",
+          "externalApp"
+        ],
+        "outcome": [
+          "success",
+          "cancelled",
+          "failed"
+        ]
+      }
+    },
+    "x-ext:PermissionGate": {
+      "kind": "x-ext:PermissionGate",
+      "layer": "boundary",
+      "legal_in_edges": [
+        "navigates",
+        "fires"
+      ],
+      "legal_out_edges": [
+        "returnsTo",
+        "fires",
+        "emits"
+      ],
+      "attrs": {
+        "outcome": [
+          "granted",
+          "denied",
+          "limited"
+        ],
+        "persistent": true,
+        "rePromptable": true
+      }
+    }
+  },
+  "edgeRegistry": {
+    "x-ext:returnsTo": {
+      "ns": "x-ext",
+      "from_kinds": [
+        "x-ext:ExternalSurface",
+        "x-ext:PermissionGate"
+      ],
+      "to_kinds": [
+        "Screen",
+        "NavContainer"
+      ],
+      "family": "NAV",
+      "subPropertyOf": "navigates",
+      "attrs": {
+        "when": "<outcome-value|\"else\">",
+        "writesBack": "<StateStore.key>"
+      }
+    }
+  },
+  "nodeKinds": {
+    "surface": [
+      "Screen",
+      "Component",
+      "NavContainer"
+    ],
+    "logic": [
+      "Trigger",
+      "NavAction",
+      "MutationAction",
+      "EffectAction",
+      "ViewStateAction",
+      "QueryAction",
+      "ViewState",
+      "Assertion"
+    ],
+    "substrate": [
+      "StateStore",
+      "DataSource",
+      "BackendOp",
+      "PipelineStage",
+      "SideEffect"
+    ],
+    "policy": [
+      "Policy"
+    ],
+    "boundary": []
+  },
+  "nodes": {
+    "surface": {
+      "screen:onb/Welcome": {
+        "kind": "Screen",
+        "intent": "Onboarding entry: 'Welcome! Let's see how Wanderlog helps you plan your next trip.' Single Start CTA.",
+        "refs": {}
+      },
+      "screen:onb/Step1DreamVacation": {
+        "kind": "Screen",
+        "intent": "Wizard step 1 of 3: 'What's your dream vacation?' single-select question; progress bar + Skip link in nav bar.",
+        "refs": {}
+      },
+      "screen:onb/Step2TravelStyle": {
+        "kind": "Screen",
+        "intent": "Wizard step 2 of 3: travel-style single-select question; progress bar + per-step Back.",
+        "refs": {}
+      },
+      "screen:onb/Step3Budget": {
+        "kind": "Screen",
+        "intent": "Wizard step 3 of 3: trip-budget question; progress bar + per-step Back; advances into the entry router.",
+        "refs": {}
+      },
+      "screen:onb/Router": {
+        "kind": "Screen",
+        "intent": "Invisible entry-router step: 'We like the way you travel — let's set up your account', routes returning-vs-new on appear.",
+        "refs": {}
+      },
+      "screen:onb/SignIn": {
+        "kind": "Screen",
+        "intent": "Returning-user sign-in screen (router sends existing accounts here).",
+        "refs": {}
+      },
+      "screen:onb/CreateAccount": {
+        "kind": "Screen",
+        "intent": "New-user account-creation form (username/email/password); gated Continue.",
+        "refs": {}
+      },
+      "screen:onb/Done": {
+        "kind": "Screen",
+        "intent": "'You're all set' confirmation; persists answers to the trip-prefs profile and replaces root into the app home.",
+        "refs": {}
+      },
+      "screen:home/Trips": {
+        "kind": "Screen",
+        "intent": "Main app home (trips list) — the onboarding destination.",
+        "refs": {}
+      },
+      "comp:onb/ProgressBar": {
+        "kind": "Component",
+        "intent": "Top progress bar reflecting current wizard step out of total.",
+        "refs": {}
+      },
+      "comp:onb/OptionList": {
+        "kind": "Component",
+        "intent": "Reusable single-select option list rendered on each question step.",
+        "refs": {}
+      },
+      "comp:onb/AccountForm": {
+        "kind": "Component",
+        "intent": "Username/email/password form fields on the create-account step.",
+        "refs": {}
+      }
+    },
+    "logic": {
+      "trig:onb/StartTap": {
+        "kind": "Trigger",
+        "intent": "User taps Start on the welcome screen.",
+        "refs": {}
+      },
+      "trig:onb/Step1SelectTap": {
+        "kind": "Trigger",
+        "intent": "User picks a dream-vacation option (auto-advances).",
+        "refs": {}
+      },
+      "trig:onb/Step1SkipTap": {
+        "kind": "Trigger",
+        "intent": "User taps the Skip link on step 1.",
+        "refs": {}
+      },
+      "trig:onb/Step2NextTap": {
+        "kind": "Trigger",
+        "intent": "User taps Continue on step 2.",
+        "refs": {}
+      },
+      "trig:onb/Step2BackTap": {
+        "kind": "Trigger",
+        "intent": "User taps Back on step 2.",
+        "refs": {}
+      },
+      "trig:onb/Step3NextTap": {
+        "kind": "Trigger",
+        "intent": "User taps Continue on step 3.",
+        "refs": {}
+      },
+      "trig:onb/Step3BackTap": {
+        "kind": "Trigger",
+        "intent": "User taps Back on step 3.",
+        "refs": {}
+      },
+      "trig:onb/RouterAppear": {
+        "kind": "Trigger",
+        "intent": "Router screen appears; evaluate returning-vs-new.",
+        "refs": {}
+      },
+      "trig:onb/SignInTap": {
+        "kind": "Trigger",
+        "intent": "Returning user submits sign-in.",
+        "refs": {}
+      },
+      "trig:onb/FormChange": {
+        "kind": "Trigger",
+        "intent": "Account form field edited (drives live validity).",
+        "refs": {}
+      },
+      "trig:onb/CreateTap": {
+        "kind": "Trigger",
+        "intent": "User taps Create account (gated by form validity).",
+        "refs": {}
+      },
+      "trig:onb/FinishTap": {
+        "kind": "Trigger",
+        "intent": "User taps Done on the confirmation screen.",
+        "refs": {}
+      },
+      "act:onb/GoToStep1": {
+        "kind": "NavAction",
+        "intent": "Push wizard step 1 from welcome.",
+        "refs": {}
+      },
+      "act:onb/SaveStep1AndAdvance": {
+        "kind": "MutationAction",
+        "intent": "G15 multi-effect: save the dream-vacation answer, emit analytics, AND push step 2 — one 'select-and-advance' tap.",
+        "refs": {}
+      },
+      "act:onb/SkipStep1": {
+        "kind": "NavAction",
+        "intent": "Skip step 1 without saving an answer; push step 2 (pure nav, no mutation).",
+        "refs": {}
+      },
+      "act:onb/SaveStep2AndAdvance": {
+        "kind": "MutationAction",
+        "intent": "G15 multi-effect: save the travel-style answer, emit analytics, AND push step 3.",
+        "refs": {}
+      },
+      "act:onb/BackFromStep2": {
+        "kind": "NavAction",
+        "intent": "Per-step Back: pop step 2 to step 1.",
+        "refs": {}
+      },
+      "act:onb/SaveStep3AndAdvance": {
+        "kind": "MutationAction",
+        "intent": "G15 multi-effect: save the budget answer, emit analytics, AND push the entry router.",
+        "refs": {}
+      },
+      "act:onb/BackFromStep3": {
+        "kind": "NavAction",
+        "intent": "Per-step Back: pop step 3 to step 2.",
+        "refs": {}
+      },
+      "act:onb/RouteEntry": {
+        "kind": "NavAction",
+        "intent": "Entry router: branch returning-user vs new-user (XOR branch set).",
+        "refs": {}
+      },
+      "act:onb/SignIn": {
+        "kind": "MutationAction",
+        "intent": "G15 multi-effect: authenticate the returning user, write session, AND advance to the confirmation/done screen.",
+        "refs": {}
+      },
+      "act:onb/UpdateFormState": {
+        "kind": "ViewStateAction",
+        "intent": "Write edited account-form fields into local form view-state.",
+        "refs": {}
+      },
+      "act:onb/CreateAccount": {
+        "kind": "MutationAction",
+        "intent": "G15 multi-effect: create the account, invoke the signup backend op, emit analytics, AND advance to confirmation (gated by form validity).",
+        "refs": {}
+      },
+      "act:onb/FinishOnboarding": {
+        "kind": "MutationAction",
+        "intent": "G15 multi-effect: persist collected trip prefs to the profile, emit completion analytics, AND replace-root into app home.",
+        "refs": {}
+      },
+      "vs:onb/AccountForm": {
+        "kind": "ViewState",
+        "intent": "Local account-form view-state (username/email/password field values + touched flags).",
+        "refs": {},
+        "attrs": {
+          "phase": "live"
+        }
+      },
+      "assert:onb/Step1Answered": {
+        "kind": "Assertion",
+        "intent": "An option on step 1 has been selected (gates save-and-advance vs the skip path).",
+        "refs": {}
+      },
+      "assert:onb/Step2Answered": {
+        "kind": "Assertion",
+        "intent": "An option on step 2 has been selected (gates the step-2 Continue).",
+        "refs": {}
+      },
+      "assert:onb/Step3Answered": {
+        "kind": "Assertion",
+        "intent": "An option on step 3 has been selected (gates the step-3 Continue).",
+        "refs": {}
+      },
+      "assert:onb/IsReturningUser": {
+        "kind": "Assertion",
+        "intent": "Device already has a known/returning account (router branch predicate).",
+        "refs": {}
+      },
+      "assert:onb/FormValid": {
+        "kind": "Assertion",
+        "intent": "Account form is valid (G16: derives from the live account-form ViewState, not a persisted store).",
+        "refs": {}
+      }
+    },
+    "substrate": {
+      "store:onb/AnswerStore": {
+        "kind": "StateStore",
+        "intent": "Wizard answers collected per step (dream-vacation, travel-style, budget).",
+        "refs": {}
+      },
+      "store:onb/ProfileStore": {
+        "kind": "StateStore",
+        "intent": "User trip-preference profile assembled from the wizard answers.",
+        "refs": {}
+      },
+      "store:auth/SessionStore": {
+        "kind": "StateStore",
+        "intent": "Authenticated user session (token, account id).",
+        "refs": {}
+      },
+      "op:auth/SignUp": {
+        "kind": "BackendOp",
+        "intent": "Backend account-creation operation.",
+        "refs": {}
+      },
+      "op:auth/SignIn": {
+        "kind": "BackendOp",
+        "intent": "Backend sign-in operation for returning users.",
+        "refs": {}
+      },
+      "fx:analytics/StepAnswered": {
+        "kind": "SideEffect",
+        "intent": "Analytics event emitted on each saved wizard step answer.",
+        "refs": {}
+      },
+      "fx:analytics/OnboardingDone": {
+        "kind": "SideEffect",
+        "intent": "Analytics event emitted when onboarding completes.",
+        "refs": {}
+      }
+    },
+    "policy": {},
+    "boundary": {}
+  },
+  "edges": [
+    {
+      "type": "renders",
+      "from": "screen:onb/Step1DreamVacation",
+      "to": "comp:onb/ProgressBar",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:onb/Step1DreamVacation",
+      "to": "comp:onb/OptionList",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:onb/Step2TravelStyle",
+      "to": "comp:onb/ProgressBar",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:onb/Step2TravelStyle",
+      "to": "comp:onb/OptionList",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:onb/Step3Budget",
+      "to": "comp:onb/ProgressBar",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:onb/Step3Budget",
+      "to": "comp:onb/OptionList",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:onb/CreateAccount",
+      "to": "comp:onb/AccountForm",
+      "repeat": false
+    },
+    {
+      "type": "handles",
+      "from": "screen:onb/Welcome",
+      "to": "trig:onb/StartTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:onb/Step1DreamVacation",
+      "to": "trig:onb/Step1SelectTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:onb/Step1DreamVacation",
+      "to": "trig:onb/Step1SkipTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:onb/Step2TravelStyle",
+      "to": "trig:onb/Step2NextTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:onb/Step2TravelStyle",
+      "to": "trig:onb/Step2BackTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:onb/Step3Budget",
+      "to": "trig:onb/Step3NextTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:onb/Step3Budget",
+      "to": "trig:onb/Step3BackTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:onb/Router",
+      "to": "trig:onb/RouterAppear",
+      "event": "appear"
+    },
+    {
+      "type": "handles",
+      "from": "screen:onb/SignIn",
+      "to": "trig:onb/SignInTap",
+      "event": "submit"
+    },
+    {
+      "type": "handles",
+      "from": "screen:onb/CreateAccount",
+      "to": "trig:onb/FormChange",
+      "event": "change"
+    },
+    {
+      "type": "handles",
+      "from": "screen:onb/CreateAccount",
+      "to": "trig:onb/CreateTap",
+      "event": "submit"
+    },
+    {
+      "type": "handles",
+      "from": "screen:onb/Done",
+      "to": "trig:onb/FinishTap",
+      "event": "tap"
+    },
+    {
+      "type": "binds",
+      "from": "comp:onb/AccountForm",
+      "to": "vs:onb/AccountForm"
+    },
+    {
+      "type": "binds",
+      "from": "comp:onb/OptionList",
+      "to": "store:onb/AnswerStore"
+    },
+    {
+      "type": "fires",
+      "from": "trig:onb/StartTap",
+      "to": "act:onb/GoToStep1",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:onb/Step1SelectTap",
+      "to": "act:onb/SaveStep1AndAdvance",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:onb/Step1SkipTap",
+      "to": "act:onb/SkipStep1",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:onb/Step2NextTap",
+      "to": "act:onb/SaveStep2AndAdvance",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:onb/Step2BackTap",
+      "to": "act:onb/BackFromStep2",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:onb/Step3NextTap",
+      "to": "act:onb/SaveStep3AndAdvance",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:onb/Step3BackTap",
+      "to": "act:onb/BackFromStep3",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:onb/RouterAppear",
+      "to": "act:onb/RouteEntry",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:onb/SignInTap",
+      "to": "act:onb/SignIn",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:onb/FormChange",
+      "to": "act:onb/UpdateFormState",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:onb/CreateTap",
+      "to": "act:onb/CreateAccount",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:onb/FinishTap",
+      "to": "act:onb/FinishOnboarding",
+      "seq": 0
+    },
+    {
+      "type": "navigates",
+      "from": "act:onb/GoToStep1",
+      "to": "screen:onb/Step1DreamVacation",
+      "present": "push"
+    },
+    {
+      "type": "writes",
+      "from": "act:onb/SaveStep1AndAdvance",
+      "to": "store:onb/AnswerStore",
+      "mode": "set"
+    },
+    {
+      "type": "emits",
+      "from": "act:onb/SaveStep1AndAdvance",
+      "to": "fx:analytics/StepAnswered",
+      "effect": "analytics"
+    },
+    {
+      "type": "navigates",
+      "from": "act:onb/SaveStep1AndAdvance",
+      "to": "screen:onb/Step2TravelStyle",
+      "present": "push"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:onb/SaveStep1AndAdvance",
+      "to": "assert:onb/Step1Answered",
+      "polarity": "require"
+    },
+    {
+      "type": "navigates",
+      "from": "act:onb/SkipStep1",
+      "to": "screen:onb/Step2TravelStyle",
+      "present": "push"
+    },
+    {
+      "type": "writes",
+      "from": "act:onb/SaveStep2AndAdvance",
+      "to": "store:onb/AnswerStore",
+      "mode": "set"
+    },
+    {
+      "type": "emits",
+      "from": "act:onb/SaveStep2AndAdvance",
+      "to": "fx:analytics/StepAnswered",
+      "effect": "analytics"
+    },
+    {
+      "type": "navigates",
+      "from": "act:onb/SaveStep2AndAdvance",
+      "to": "screen:onb/Step3Budget",
+      "present": "push"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:onb/SaveStep2AndAdvance",
+      "to": "assert:onb/Step2Answered",
+      "polarity": "require"
+    },
+    {
+      "type": "dismisses",
+      "from": "act:onb/BackFromStep2",
+      "to": "screen:onb/Step2TravelStyle",
+      "target": "self"
+    },
+    {
+      "type": "writes",
+      "from": "act:onb/SaveStep3AndAdvance",
+      "to": "store:onb/AnswerStore",
+      "mode": "set"
+    },
+    {
+      "type": "emits",
+      "from": "act:onb/SaveStep3AndAdvance",
+      "to": "fx:analytics/StepAnswered",
+      "effect": "analytics"
+    },
+    {
+      "type": "navigates",
+      "from": "act:onb/SaveStep3AndAdvance",
+      "to": "screen:onb/Router",
+      "present": "push"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:onb/SaveStep3AndAdvance",
+      "to": "assert:onb/Step3Answered",
+      "polarity": "require"
+    },
+    {
+      "type": "dismisses",
+      "from": "act:onb/BackFromStep3",
+      "to": "screen:onb/Step3Budget",
+      "target": "self"
+    },
+    {
+      "type": "navigates",
+      "from": "act:onb/RouteEntry",
+      "to": "screen:onb/SignIn",
+      "present": "replace-root",
+      "when": "assert:onb/IsReturningUser"
+    },
+    {
+      "type": "navigates",
+      "from": "act:onb/RouteEntry",
+      "to": "screen:onb/CreateAccount",
+      "present": "replace-root",
+      "when": "else"
+    },
+    {
+      "type": "invokes",
+      "from": "act:onb/SignIn",
+      "to": "op:auth/SignIn",
+      "awaits": true
+    },
+    {
+      "type": "writes",
+      "from": "act:onb/SignIn",
+      "to": "store:auth/SessionStore",
+      "mode": "set"
+    },
+    {
+      "type": "navigates",
+      "from": "act:onb/SignIn",
+      "to": "screen:onb/Done",
+      "present": "replace-root"
+    },
+    {
+      "type": "setsViewState",
+      "from": "act:onb/UpdateFormState",
+      "to": "vs:onb/AccountForm"
+    },
+    {
+      "type": "writes",
+      "from": "act:onb/CreateAccount",
+      "to": "store:auth/SessionStore",
+      "mode": "set"
+    },
+    {
+      "type": "invokes",
+      "from": "act:onb/CreateAccount",
+      "to": "op:auth/SignUp",
+      "awaits": true,
+      "idempotent": false
+    },
+    {
+      "type": "emits",
+      "from": "act:onb/CreateAccount",
+      "to": "fx:analytics/StepAnswered",
+      "effect": "analytics"
+    },
+    {
+      "type": "navigates",
+      "from": "act:onb/CreateAccount",
+      "to": "screen:onb/Done",
+      "present": "replace-root"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:onb/CreateAccount",
+      "to": "assert:onb/FormValid",
+      "polarity": "require"
+    },
+    {
+      "type": "writes",
+      "from": "act:onb/FinishOnboarding",
+      "to": "store:onb/ProfileStore",
+      "mode": "set"
+    },
+    {
+      "type": "emits",
+      "from": "act:onb/FinishOnboarding",
+      "to": "fx:analytics/OnboardingDone",
+      "effect": "analytics"
+    },
+    {
+      "type": "navigates",
+      "from": "act:onb/FinishOnboarding",
+      "to": "screen:home/Trips",
+      "present": "replace-root"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:onb/Step1Answered",
+      "to": "store:onb/AnswerStore"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:onb/Step2Answered",
+      "to": "store:onb/AnswerStore"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:onb/Step3Answered",
+      "to": "store:onb/AnswerStore"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:onb/IsReturningUser",
+      "to": "store:auth/SessionStore"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:onb/FormValid",
+      "to": "vs:onb/AccountForm"
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "schema": "design-complete-graph",
+  "version": "1.4",
+  "meta": {
+    "app": "DesignCompleteFixture",
+    "lints": ["design-completeness"],
+    "tokensSource": "docs/product/design-tokens.json"
+  },
+  "nodes": {
+    "surface": {
+      "screen:app/Home": {
+        "kind": "Screen",
+        "intent": "the app home, fully designed",
+        "refs": { "tokens": "homeScreen", "design": "figma:home/main" },
+        "attrs": { "review": { "design": { "v": "passed", "against": "fnv1a:1e9b2a0b7631c71a" } } }
+      },
+      "comp:app/Card": {
+        "kind": "Component",
+        "intent": "a styled card",
+        "refs": { "tokens": "card" }
+      }
+    },
+    "logic": {
+      "vs:home/Empty": {
+        "kind": "ViewState",
+        "refs": {},
+        "attrs": { "phase": "empty" }
+      },
+      "vs:home/Error": {
+        "kind": "ViewState",
+        "refs": {},
+        "attrs": { "phase": "error" }
+      },
+      "vs:home/Live": {
+        "kind": "ViewState",
+        "refs": {},
+        "attrs": { "phase": "live" }
+      }
+    }
+  },
+  "edges": [
+    { "type": "renders", "from": "screen:app/Home", "to": "comp:app/Card" },
+    { "type": "binds", "from": "screen:app/Home", "to": "vs:home/Empty" },
+    { "type": "binds", "from": "screen:app/Home", "to": "vs:home/Error" },
+    { "type": "binds", "from": "screen:app/Home", "to": "vs:home/Live" }
+  ]
+}

@@ -1,0 +1,43 @@
+---
+source: tests/render.rs
+expression: "render_out(&[\"spine\", \"--ascii\", \"examples/checkout.json\"])"
+---
+BACKEND PULL SPINE — STALACTITE VIEW  (downward data-pull only)
+================================================================================
+Each column = one consumer surface. Read DOWN: surface chip -> bound
+stores/viewstates (LOGIC) -> produced stores -> pipeline stages ->
+BackendOps (floor). Spine length = pull depth.
+schema checkout-graph v1.3  ·  65 nodes / 88 edges
+
+PER-COLUMN PULL SUMMARY
+--------------------------------------------------------------------------------
+surface                  depth  fanin floor  ticks
+LineItemList             1      1     .      #
+OrderSummary             1      1     .      #
+AddressCard              1      1     .      #
+AddressForm              1      0     .      
+Complete                 3      1     YES    #
+Payment                  1      1     .      #
+
+STALACTITE GRID  (shared substrate rows; | = spine, o = tick,
+                  # = stage/op tick)
+--------------------------------------------------------------------------------
+                    |LI OS AC AF CO PA 
+                    +------------------
+SURFACE             |[] [] [] [] [] [] 
+  bind[0]           | o  o  o  o  o  o 
+  OrderStore        |             o    
+op:PlaceOrder       |             #    
+                    +==================  <- floor (BackendOps)
+
+COLUMN CODES
+--------------------------------------------------------------------------------
+  LI   = LineItemList           (Component)
+  OS   = OrderSummary           (Component)
+  AC   = AddressCard            (Component)
+  AF   = AddressForm            (Screen)
+  CO   = Complete               (Screen)
+  PA   = Payment                (Screen)
+
+SHARED SUBSTRATE NODES (convergence — multiple spines land here)
+--------------------------------------------------------------------------------

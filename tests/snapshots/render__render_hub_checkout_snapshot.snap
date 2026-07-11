@@ -1,0 +1,97 @@
+---
+source: tests/render.rs
+expression: "render_out(&[\"hub\", \"examples/checkout.json\"])"
+---
+# App-Spec Graph — BLUEPRINT hub (generated; do NOT hand-edit)
+
+> schema `checkout-graph` v`1.3` · 65 nodes · 88 edges. Regenerate with `graph render hub`.
+
+## surface
+
+| id | intent | slice | key out-edges |
+|---|---|---|---|
+| `comp:cart/LineItemList` | Renders the cart line items (image, title, qty stepper, price). |  | — |
+| `comp:cart/OrderSummary` | Renders subtotal / shipping / taxes / estimated total from the cart store. |  | — |
+| `comp:checkout/AddressCard` | Renders the currently-selected shipping address summary. |  | — |
+| `comp:checkout/PlaceOrderButton` | Primary Place-Order button; disabled while a submit is in flight to prevent double-charge. |  | — |
+| `screen:cart/Bag` | Cart/bag: line items, promos, order summary, Checkout CTA. |  | renders→comp:cart/LineItemList; renders→comp:cart/OrderSummary |
+| `screen:cart/PromoCode` | Promo-code sheet: enter and apply a coupon; reflects the discount in the order summary. |  | — |
+| `screen:checkout/AddressForm` | Address-entry sheet: name/street/city/zip fields with inline validation; Save and continue. |  | — |
+| `screen:checkout/CardEntry` | Card-entry sheet: card number / expiry / CVV + remember-card toggle; Save card. |  | — |
+| `screen:checkout/Complete` | Order complete: 'You're all set', order number, confirmation-email notice. |  | — |
+| `screen:checkout/DeliveryMethod` | Delivery-method picker: choose shipping speed (Standard / Express / Overnight) with prices and ETAs; Confirm. |  | — |
+| `screen:checkout/OrderFailed` | Order-failed: payment declined / place-order error; shows the reason and a Retry / change-payment CTA. |  | — |
+| `screen:checkout/Payment` | Payment-method step: radio set (Card / Apple Pay / PayPal); Continue. |  | — |
+| `screen:checkout/Review` | Final review/confirm: address + payment + totals; Place Order CTA (duplicate-submit hazard). |  | renders→comp:cart/OrderSummary; renders→comp:checkout/AddressCard; renders→comp:checkout/PlaceOrderButton |
+| `screen:checkout/Shipping` | Shipping/address step: shows saved address + delivery method; Continue to payment. |  | renders→comp:checkout/AddressCard |
+
+## logic
+
+| id | intent | slice | key out-edges |
+|---|---|---|---|
+| `act:address/Cancel` | Dismiss the address form without saving. |  | dismisses→screen:checkout/AddressForm |
+| `act:address/SaveAndContinue` | G15: persist the address to the store AND dismiss back to shipping in one tap (save-and-close), guarded by form-valid. |  | dismisses→screen:checkout/AddressForm; guardedBy→assert:address/Valid; writes→store:CheckoutStore |
+| `act:address/UpdateField` | Write the edited field value into the local address-form view state. |  | — |
+| `act:card/SaveCard` | G15: tokenize+write the card to the checkout store AND dismiss back to payment in one tap. |  | dismisses→screen:checkout/CardEntry; guardedBy→policy:pci/CardData; writes→store:CheckoutStore |
+| `act:cart/GoToShipping` | Advance from the bag to the shipping step. |  | navigates→screen:checkout/Shipping |
+| `act:cart/LogCheckoutStart` | Emit the checkout-started analytics event (independent fan-out alongside the nav). |  | — |
+| `act:cart/PresentPromoCode` | Present the promo-code sheet. |  | navigates→screen:cart/PromoCode |
+| `act:cart/UpdateQty` | Write the new quantity into the cart store; totals re-derive. |  | writes→store:CartStore |
+| `act:delivery/Confirm` | Dismiss the delivery-method picker back to shipping. |  | dismisses→screen:checkout/DeliveryMethod |
+| `act:order/Retry` | Return to the review step to retry placing the order. |  | navigates→screen:checkout/Review |
+| `act:pay/Continue` | Branch on chosen method: card -> review, Apple Pay -> Apple Pay sheet. |  | navigates→screen:checkout/Review; navigates→x-ext:pay/ApplePaySheet |
+| `act:pay/PresentCardEntry` | Present the card-entry sheet when Card is selected. |  | navigates→screen:checkout/CardEntry |
+| `act:pay/SelectMethod` | Write the chosen payment method into the checkout store. |  | writes→store:CheckoutStore |
+| `act:promo/Apply` | Dismiss the promo-code sheet back to the bag. |  | dismisses→screen:cart/PromoCode |
+| `act:review/PlaceOrder` | Submit the order: invoke the irreversible non-idempotent place-order backend op + emit analytics + advance to complete (G15 save-and-advance). |  | guardedBy→assert:review/NotSubmitting; invokes→op:checkout/PlaceOrder; navigates→screen:checkout/Complete; navigates→screen:checkout/OrderFailed; writes→store:CheckoutStore |
+| `act:shipping/Continue` | Advance from shipping to payment (guarded by address-present). |  | guardedBy→assert:shipping/AddressPresent; navigates→screen:checkout/Payment |
+| `act:shipping/PresentAddressForm` | Present the address-entry sheet. |  | navigates→screen:checkout/AddressForm |
+| `act:shipping/PresentDeliveryMethod` | Present the delivery-method picker sheet. |  | navigates→screen:checkout/DeliveryMethod |
+| `assert:address/Valid` | G16: address form is valid (all required fields well-formed). Derives from the live form view state, not a persisted store. |  | — |
+| `assert:pay/CardSelected` | The chosen payment method is a saved card (the in-app review path). |  | — |
+| `assert:pay/WalletSelected` | The chosen payment method is an external wallet (Apple Pay) requiring a handoff. |  | — |
+| `assert:review/NotSubmitting` | No submit is currently in flight (duplicate-submit guard for Place Order). |  | — |
+| `assert:shipping/AddressPresent` | A shipping address must be saved before advancing to payment. |  | — |
+| `trig:address/CancelTap` | User dismisses the address form without saving. |  | — |
+| `trig:address/FieldChange` | User edits an address form field (name/street/city/zip). |  | — |
+| `trig:address/SaveTap` | User taps Save & Continue on the address form. |  | — |
+| `trig:card/SaveTap` | User taps Save on the card-entry sheet. |  | — |
+| `trig:cart/CheckoutTap` | User taps Checkout on the bag. |  | — |
+| `trig:cart/PromoTap` | User taps to add/apply a promo code on the bag. |  | — |
+| `trig:cart/QtyChange` | User changes a line-item quantity via the stepper. |  | — |
+| `trig:delivery/ConfirmTap` | User taps Confirm on the delivery-method picker. |  | — |
+| `trig:order/RetryTap` | User taps Retry on the order-failed screen. |  | — |
+| `trig:pay/ContinueTap` | User taps Continue on the payment step. |  | — |
+| `trig:pay/MethodSelect` | User selects a payment method radio (Card / Apple Pay / PayPal). |  | — |
+| `trig:promo/ApplyTap` | User taps Apply on the promo-code sheet. |  | — |
+| `trig:review/PlaceOrderTap` | User taps Place Order on the review screen. |  | — |
+| `trig:shipping/ContinueTap` | User taps Continue on the shipping step. |  | — |
+| `trig:shipping/EditAddressTap` | User taps to edit/add the shipping address. |  | — |
+| `trig:shipping/EditDeliveryTap` | User taps to change the delivery method on the shipping step. |  | — |
+| `vs:address/Form` | Local address-form field state (name/street/city/zip) before persistence. |  | — |
+| `vs:checkout/Submitting` | In-flight submit flag; disables Place Order to block duplicate submits. |  | — |
+
+## substrate
+
+| id | intent | slice | key out-edges |
+|---|---|---|---|
+| `fx:analytics/ApplePayResult` | Analytics event for the Apple Pay sheet outcome (success/cancelled/failed). |  | — |
+| `fx:analytics/CheckoutStarted` | Analytics event when checkout begins. |  | — |
+| `fx:analytics/OrderPlaced` | Analytics event when an order is successfully placed. |  | — |
+| `fx:haptic/OrderSuccess` | Success haptic when the order completes. |  | — |
+| `op:checkout/PlaceOrder` | Server place-order call: charges payment, creates the order. Irreversible, non-idempotent without a key. |  | guardedBy→policy:pci/CardData; produces→store:OrderStore |
+| `store:CartStore` | Cart line items + quantities + computed totals. |  | — |
+| `store:CheckoutStore` | Checkout draft: selected address, payment method, tokenized card, submit flag. |  | — |
+| `store:OrderStore` | Placed orders (order number, confirmation, receipt). |  | — |
+
+## policy
+
+| id | intent | slice | key out-edges |
+|---|---|---|---|
+| `policy:pci/CardData` | PCI-DSS gate on raw card handling: card data is tokenized client-side; the backend op never sees PAN. DEFERRED-status posture gate, not a runtime predicate. |  | — |
+
+## boundary
+
+| id | intent | slice | key out-edges |
+|---|---|---|---|
+| `x-ext:pay/ApplePaySheet` | Apple Pay payment sheet: control leaves the app; returns keyed on the sheet outcome. |  | — |

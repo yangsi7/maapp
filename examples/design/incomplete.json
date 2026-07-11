@@ -1,0 +1,33 @@
+{
+  "schema": "design-incomplete-graph",
+  "version": "1.4",
+  "meta": {
+    "app": "DesignIncompleteFixture",
+    "lints": ["design-completeness"]
+  },
+  "nodes": {
+    "surface": {
+      "screen:app/Home": {
+        "kind": "Screen",
+        "intent": "data-bound home with every design dimension missing",
+        "refs": {}
+      },
+      "comp:app/Card": {
+        "kind": "Component",
+        "intent": "a card that DOES reference a token (makes D3 applicable)",
+        "refs": { "tokens": "card" }
+      }
+    },
+    "logic": {
+      "vs:home/Live": {
+        "kind": "ViewState",
+        "refs": {},
+        "attrs": { "phase": "live" }
+      }
+    }
+  },
+  "edges": [
+    { "type": "renders", "from": "screen:app/Home", "to": "comp:app/Card" },
+    { "type": "binds", "from": "screen:app/Home", "to": "vs:home/Live" }
+  ]
+}

@@ -1,0 +1,205 @@
+---
+source: tests/query.rs
+expression: rs
+---
+{
+  "view": "dependency",
+  "nodes": [
+    "act:detail/Export",
+    "act:detail/LoadDetail",
+    "act:filter/ApplyAndClose",
+    "act:overview/LoadCharts",
+    "act:overview/RefreshCharts",
+    "assert:detail/SeriesLoaded",
+    "assert:filter/RangeValid",
+    "assert:filter/RawDataAvailable",
+    "assert:overview/CardSeriesReady",
+    "assert:overview/FilterApplied",
+    "assert:overview/RefreshNotInFlight",
+    "comp:analytics/BreakdownList",
+    "comp:analytics/ChartView",
+    "comp:analytics/MetricCard",
+    "comp:analytics/PeriodSegment",
+    "op:ExportReport",
+    "op:SyncLedger",
+    "screen:analytics/MetricDetail",
+    "screen:analytics/Overview",
+    "src:LedgerAPI",
+    "stage:agg/Aggregate",
+    "stage:agg/Normalize",
+    "stage:agg/Series",
+    "store:AggregateStore",
+    "store:ChartSeriesStore",
+    "store:DetailSeriesStore",
+    "store:FilterStore",
+    "store:RawTxnStore",
+    "vs:detail/Load",
+    "vs:filter/Draft",
+    "vs:overview/ChartLoad"
+  ],
+  "edges": [
+    {
+      "type": "binds",
+      "from": "screen:analytics/Overview",
+      "to": "store:FilterStore"
+    },
+    {
+      "type": "binds",
+      "from": "comp:analytics/ChartView",
+      "to": "store:ChartSeriesStore",
+      "scopedBy": "FilterStore.activeRange"
+    },
+    {
+      "type": "binds",
+      "from": "comp:analytics/ChartView",
+      "to": "vs:overview/ChartLoad"
+    },
+    {
+      "type": "binds",
+      "from": "comp:analytics/MetricCard",
+      "to": "store:ChartSeriesStore",
+      "scopedBy": "card.metricId"
+    },
+    {
+      "type": "binds",
+      "from": "comp:analytics/PeriodSegment",
+      "to": "vs:filter/Draft"
+    },
+    {
+      "type": "binds",
+      "from": "comp:analytics/BreakdownList",
+      "to": "store:DetailSeriesStore",
+      "scopedBy": "MetricDetail.metricId"
+    },
+    {
+      "type": "binds",
+      "from": "screen:analytics/MetricDetail",
+      "to": "vs:detail/Load"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:filter/RangeValid",
+      "to": "vs:filter/Draft"
+    },
+    {
+      "type": "writes",
+      "from": "act:filter/ApplyAndClose",
+      "to": "store:FilterStore",
+      "mode": "set"
+    },
+    {
+      "type": "invokes",
+      "from": "act:filter/ApplyAndClose",
+      "to": "stage:agg/Normalize",
+      "awaits": true,
+      "idempotent": true
+    },
+    {
+      "type": "reads",
+      "from": "act:overview/LoadCharts",
+      "to": "store:ChartSeriesStore",
+      "cachePolicy": "stale-while-revalidate"
+    },
+    {
+      "type": "reads",
+      "from": "act:overview/RefreshCharts",
+      "to": "store:ChartSeriesStore",
+      "cachePolicy": "fresh"
+    },
+    {
+      "type": "reads",
+      "from": "act:detail/LoadDetail",
+      "to": "store:DetailSeriesStore",
+      "cachePolicy": "cached"
+    },
+    {
+      "type": "invokes",
+      "from": "act:detail/Export",
+      "to": "op:ExportReport",
+      "awaits": true,
+      "idempotent": true
+    },
+    {
+      "type": "reads",
+      "from": "op:SyncLedger",
+      "to": "src:LedgerAPI",
+      "cachePolicy": "fresh"
+    },
+    {
+      "type": "produces",
+      "from": "op:SyncLedger",
+      "to": "store:RawTxnStore",
+      "artifact": "rawTransactions"
+    },
+    {
+      "type": "produces",
+      "from": "op:ExportReport",
+      "to": "store:DetailSeriesStore",
+      "artifact": "exportFile"
+    },
+    {
+      "type": "x-pipeline:consumes",
+      "from": "store:RawTxnStore",
+      "to": "stage:agg/Normalize"
+    },
+    {
+      "type": "x-pipeline:consumes",
+      "from": "store:FilterStore",
+      "to": "stage:agg/Normalize"
+    },
+    {
+      "type": "x-pipeline:consumes",
+      "from": "store:FilterStore",
+      "to": "stage:agg/Aggregate"
+    },
+    {
+      "type": "x-pipeline:feeds",
+      "from": "stage:agg/Normalize",
+      "to": "stage:agg/Aggregate",
+      "transport": "inline"
+    },
+    {
+      "type": "x-pipeline:feeds",
+      "from": "stage:agg/Aggregate",
+      "to": "stage:agg/Series",
+      "transport": "inline"
+    },
+    {
+      "type": "produces",
+      "from": "stage:agg/Aggregate",
+      "to": "store:AggregateStore",
+      "artifact": "periodAggregates"
+    },
+    {
+      "type": "produces",
+      "from": "stage:agg/Series",
+      "to": "store:ChartSeriesStore",
+      "artifact": "chartSeries"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:overview/FilterApplied",
+      "to": "store:FilterStore"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:overview/RefreshNotInFlight",
+      "to": "vs:overview/ChartLoad"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:overview/CardSeriesReady",
+      "to": "store:ChartSeriesStore"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:filter/RawDataAvailable",
+      "to": "store:RawTxnStore"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:detail/SeriesLoaded",
+      "to": "vs:detail/Load"
+    }
+  ]
+}

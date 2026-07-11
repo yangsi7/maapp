@@ -1,0 +1,766 @@
+{
+  "meta": {
+    "schema": "maapp-graph",
+    "version": "1.3",
+    "vocab": "spec/EDGE-VOCABULARY.md",
+    "query": "graph query <node|neighbors|blast-radius|trace|view|orphans> [args] <file>",
+    "validate": "graph validate <file>",
+    "app": "Maps/location — search to turn-by-turn navigation"
+  },
+  "schema": "maapp-graph",
+  "version": "1.3",
+  "nodeKindRegistry": {
+    "x-ext:ExternalSurface": {
+      "kind": "x-ext:ExternalSurface",
+      "layer": "boundary",
+      "legal_in_edges": [
+        "navigates"
+      ],
+      "legal_out_edges": [
+        "returnsTo",
+        "fires",
+        "emits"
+      ],
+      "attrs": {
+        "surfaceKind": [
+          "osShareSheet",
+          "applePaySheet",
+          "oauthRedirect",
+          "threeDSChallenge",
+          "externalApp"
+        ],
+        "outcome": [
+          "success",
+          "cancelled",
+          "failed"
+        ]
+      }
+    },
+    "x-ext:PermissionGate": {
+      "kind": "x-ext:PermissionGate",
+      "layer": "boundary",
+      "legal_in_edges": [
+        "navigates",
+        "fires"
+      ],
+      "legal_out_edges": [
+        "returnsTo",
+        "fires",
+        "emits"
+      ],
+      "attrs": {
+        "outcome": [
+          "granted",
+          "denied",
+          "limited"
+        ],
+        "persistent": true,
+        "rePromptable": true
+      }
+    }
+  },
+  "edgeRegistry": {
+    "x-ext:returnsTo": {
+      "ns": "x-ext",
+      "from_kinds": [
+        "x-ext:ExternalSurface",
+        "x-ext:PermissionGate"
+      ],
+      "to_kinds": [
+        "Screen",
+        "NavContainer"
+      ],
+      "family": "NAV",
+      "subPropertyOf": "navigates",
+      "attrs": {
+        "when": "<outcome-value|\"else\">",
+        "writesBack": "<StateStore.key>"
+      }
+    }
+  },
+  "attrEnumRegistry": {
+    "handles.event": [
+      "x-os:locationUpdate"
+    ]
+  },
+  "nodeKinds": {
+    "surface": [
+      "Screen",
+      "Component",
+      "NavContainer"
+    ],
+    "logic": [
+      "Trigger",
+      "NavAction",
+      "MutationAction",
+      "EffectAction",
+      "ViewStateAction",
+      "QueryAction",
+      "ViewState",
+      "Assertion"
+    ],
+    "substrate": [
+      "StateStore",
+      "DataSource",
+      "BackendOp",
+      "PipelineStage",
+      "SideEffect"
+    ],
+    "policy": [
+      "Policy"
+    ],
+    "boundary": []
+  },
+  "nodes": {
+    "surface": {
+      "screen:map/Home": {
+        "kind": "Screen",
+        "intent": "Map canvas with search bar; default entry. Shows live blue-dot when location is available.",
+        "refs": {}
+      },
+      "screen:search/Results": {
+        "kind": "Screen",
+        "intent": "Search results list (recents + matched places) presented as a sheet over the map.",
+        "refs": {}
+      },
+      "screen:place/Detail": {
+        "kind": "Screen",
+        "intent": "Place detail card: name, category, hours, photos, Directions / Preview Route action.",
+        "refs": {}
+      },
+      "screen:nav/TurnByTurn": {
+        "kind": "Screen",
+        "intent": "Active turn-by-turn navigation: route polyline, maneuver banner, ETA, recenter, end-route.",
+        "refs": {}
+      },
+      "screen:map/Degraded": {
+        "kind": "Screen",
+        "intent": "Location-denied fallback: map with no blue-dot, manual 'Choose Start' entry, search still works.",
+        "refs": {}
+      },
+      "screen:settings/LocationNudge": {
+        "kind": "Screen",
+        "intent": "Limited/precise-off nudge prompting the user to enable precise location in Settings.",
+        "refs": {}
+      },
+      "comp:search/ResultRow": {
+        "kind": "Component",
+        "intent": "One result row: place name, category, distance from current location.",
+        "refs": {}
+      },
+      "comp:map/Recenter": {
+        "kind": "Component",
+        "intent": "Recenter button overlay; taps recenter the camera on the live location.",
+        "refs": {}
+      },
+      "comp:map/BlueDot": {
+        "kind": "Component",
+        "intent": "Live-location blue dot + heading cone, bound to the live-location store.",
+        "refs": {}
+      },
+      "comp:nav/ManeuverBanner": {
+        "kind": "Component",
+        "intent": "Top maneuver banner: next instruction + remaining distance, bound to the active route.",
+        "refs": {}
+      }
+    },
+    "logic": {
+      "trig:search/FieldTap": {
+        "kind": "Trigger",
+        "intent": "User taps the map search field.",
+        "refs": {}
+      },
+      "trig:search/QueryChange": {
+        "kind": "Trigger",
+        "intent": "User edits the query text in the search field.",
+        "refs": {}
+      },
+      "trig:search/Submit": {
+        "kind": "Trigger",
+        "intent": "User submits / taps a recent to run the place search.",
+        "refs": {}
+      },
+      "trig:search/RowTap": {
+        "kind": "Trigger",
+        "intent": "User taps a result row.",
+        "refs": {}
+      },
+      "trig:place/DirectionsTap": {
+        "kind": "Trigger",
+        "intent": "User taps Directions / Preview Route on the place detail.",
+        "refs": {}
+      },
+      "trig:place/StartNavTap": {
+        "kind": "Trigger",
+        "intent": "User taps Start to begin turn-by-turn navigation.",
+        "refs": {}
+      },
+      "trig:place/ExternalMapsTap": {
+        "kind": "Trigger",
+        "intent": "User taps 'Open in external maps app' to hand off turn-by-turn.",
+        "refs": {}
+      },
+      "trig:map/RecenterTap": {
+        "kind": "Trigger",
+        "intent": "User taps the recenter button.",
+        "refs": {}
+      },
+      "trig:map/LocationFix": {
+        "kind": "Trigger",
+        "intent": "System emits a new CoreLocation fix while tracking.",
+        "refs": {}
+      },
+      "trig:nav/EndTap": {
+        "kind": "Trigger",
+        "intent": "User taps End to stop navigation.",
+        "refs": {}
+      },
+      "trig:perm/RequestNeeded": {
+        "kind": "Trigger",
+        "intent": "App determines location authorization is undetermined and a fix is needed.",
+        "refs": {}
+      },
+      "act:search/PresentResults": {
+        "kind": "NavAction",
+        "intent": "Present the search results sheet over the map.",
+        "refs": {}
+      },
+      "act:search/RunSearch": {
+        "kind": "QueryAction",
+        "intent": "Read matching places from the places data source for the current query.",
+        "refs": {}
+      },
+      "act:search/UpdateQuery": {
+        "kind": "ViewStateAction",
+        "intent": "Write the live query text into local search field view-state on each keystroke.",
+        "refs": {}
+      },
+      "act:place/OpenDetail": {
+        "kind": "NavAction",
+        "intent": "Open the tapped place's detail card.",
+        "refs": {}
+      },
+      "act:place/PreviewRoute": {
+        "kind": "MutationAction",
+        "intent": "Compute the route, write it to the route store, then push the turn-by-turn screen (save-and-advance).",
+        "refs": {}
+      },
+      "act:place/HandoffExternal": {
+        "kind": "NavAction",
+        "intent": "Open the external maps chooser for third-party turn-by-turn.",
+        "refs": {}
+      },
+      "act:nav/StartNavigation": {
+        "kind": "MutationAction",
+        "intent": "Mark the route active, kick off the routing backend op, emit analytics, and advance into turn-by-turn (multi-effect nav, G15).",
+        "refs": {}
+      },
+      "act:nav/EndNavigation": {
+        "kind": "MutationAction",
+        "intent": "Clear the active route and dismiss back to the map (save-and-close).",
+        "refs": {}
+      },
+      "act:map/Recenter": {
+        "kind": "ViewStateAction",
+        "intent": "Recenter the camera on the live location (local view-state).",
+        "refs": {}
+      },
+      "act:map/UpdateLiveLocation": {
+        "kind": "MutationAction",
+        "intent": "Write the new fix into the live-location store on each CoreLocation update.",
+        "refs": {}
+      },
+      "act:perm/RequestLocation": {
+        "kind": "NavAction",
+        "intent": "Present the OS location-permission prompt.",
+        "refs": {}
+      },
+      "vs:search/QueryText": {
+        "kind": "ViewState",
+        "intent": "Live search field text (ephemeral; not persisted).",
+        "refs": {},
+        "attrs": {
+          "phase": "live"
+        }
+      },
+      "vs:map/Camera": {
+        "kind": "ViewState",
+        "intent": "Local map camera state (center, zoom, heading) — recenter target.",
+        "refs": {},
+        "attrs": {
+          "phase": "live"
+        }
+      },
+      "vs:search/ResultsLoad": {
+        "kind": "ViewState",
+        "intent": "Empty/loading/error state for the results list before the places source responds.",
+        "refs": {},
+        "attrs": {
+          "phase": "loading"
+        }
+      },
+      "assert:search/QueryValid": {
+        "kind": "Assertion",
+        "intent": "The live query text is non-empty before a search runs (derives from live view-state, G16).",
+        "refs": {}
+      },
+      "assert:nav/RouteReady": {
+        "kind": "Assertion",
+        "intent": "A computed route exists before navigation can start.",
+        "refs": {}
+      }
+    },
+    "substrate": {
+      "store:RouteStore": {
+        "kind": "StateStore",
+        "intent": "Source of truth for the computed/active route (polyline, maneuvers, ETA, active flag).",
+        "refs": {}
+      },
+      "store:LiveLocationStore": {
+        "kind": "StateStore",
+        "intent": "Latest live location fix + heading; bound by the blue-dot and recenter.",
+        "refs": {}
+      },
+      "store:RecentsStore": {
+        "kind": "StateStore",
+        "intent": "Recently searched places + selected-place id.",
+        "refs": {}
+      },
+      "store:SelectedPlaceStore": {
+        "kind": "StateStore",
+        "intent": "The place currently open in detail / targeted for routing.",
+        "refs": {}
+      },
+      "ds:places/Search": {
+        "kind": "DataSource",
+        "intent": "Remote places search index (geocoding + POI results).",
+        "refs": {}
+      },
+      "op:routing/Compute": {
+        "kind": "BackendOp",
+        "intent": "Backend routing/ETA computation for the selected origin+destination.",
+        "refs": {}
+      },
+      "fx:analytics/NavStarted": {
+        "kind": "SideEffect",
+        "intent": "Analytics event emitted when turn-by-turn navigation starts.",
+        "refs": {}
+      },
+      "fx:analytics/LocationGranted": {
+        "kind": "SideEffect",
+        "intent": "Analytics event emitted when location permission is granted.",
+        "refs": {}
+      },
+      "fx:system/OpenExternalMaps": {
+        "kind": "SideEffect",
+        "intent": "System open of the chosen external maps app URL.",
+        "refs": {}
+      }
+    },
+    "policy": {},
+    "boundary": {
+      "x-ext:perm/LocationGate": {
+        "kind": "x-ext:PermissionGate",
+        "intent": "OS location-permission prompt; forks the continuation on its tri-valued outcome.",
+        "refs": {},
+        "attrs": {
+          "outcome": "granted"
+        }
+      },
+      "x-ext:nav/ExternalMaps": {
+        "kind": "x-ext:ExternalSurface",
+        "intent": "External maps app launched for third-party turn-by-turn; control returns on success/cancel/fail.",
+        "refs": {},
+        "attrs": {
+          "surfaceKind": "externalApp",
+          "outcome": "success"
+        }
+      }
+    }
+  },
+  "edges": [
+    {
+      "type": "handles",
+      "from": "screen:map/Home",
+      "to": "trig:search/FieldTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:map/Home",
+      "to": "trig:map/RecenterTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:map/Home",
+      "to": "trig:map/LocationFix",
+      "event": "x-os:locationUpdate"
+    },
+    {
+      "type": "handles",
+      "from": "screen:map/Home",
+      "to": "trig:perm/RequestNeeded",
+      "event": "appear"
+    },
+    {
+      "type": "handles",
+      "from": "screen:search/Results",
+      "to": "trig:search/QueryChange",
+      "event": "change"
+    },
+    {
+      "type": "handles",
+      "from": "screen:search/Results",
+      "to": "trig:search/Submit",
+      "event": "submit"
+    },
+    {
+      "type": "handles",
+      "from": "screen:search/Results",
+      "to": "trig:search/RowTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:place/Detail",
+      "to": "trig:place/DirectionsTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:place/Detail",
+      "to": "trig:place/StartNavTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:place/Detail",
+      "to": "trig:place/ExternalMapsTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:nav/TurnByTurn",
+      "to": "trig:nav/EndTap",
+      "event": "tap"
+    },
+    {
+      "type": "renders",
+      "from": "screen:map/Home",
+      "to": "comp:map/Recenter",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:map/Home",
+      "to": "comp:map/BlueDot",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:search/Results",
+      "to": "comp:search/ResultRow",
+      "repeat": true
+    },
+    {
+      "type": "renders",
+      "from": "screen:nav/TurnByTurn",
+      "to": "comp:nav/ManeuverBanner",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:nav/TurnByTurn",
+      "to": "comp:map/Recenter",
+      "repeat": false
+    },
+    {
+      "type": "binds",
+      "from": "comp:map/BlueDot",
+      "to": "store:LiveLocationStore"
+    },
+    {
+      "type": "binds",
+      "from": "comp:map/Recenter",
+      "to": "vs:map/Camera"
+    },
+    {
+      "type": "binds",
+      "from": "screen:search/Results",
+      "to": "vs:search/QueryText"
+    },
+    {
+      "type": "binds",
+      "from": "screen:search/Results",
+      "to": "vs:search/ResultsLoad"
+    },
+    {
+      "type": "binds",
+      "from": "comp:search/ResultRow",
+      "to": "store:RecentsStore"
+    },
+    {
+      "type": "binds",
+      "from": "screen:place/Detail",
+      "to": "store:SelectedPlaceStore",
+      "scopedBy": "RecentsStore.selectedPlaceId"
+    },
+    {
+      "type": "binds",
+      "from": "comp:nav/ManeuverBanner",
+      "to": "store:RouteStore"
+    },
+    {
+      "type": "fires",
+      "from": "trig:search/FieldTap",
+      "to": "act:search/PresentResults",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:search/QueryChange",
+      "to": "act:search/UpdateQuery",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:search/Submit",
+      "to": "act:search/RunSearch",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:search/RowTap",
+      "to": "act:place/OpenDetail",
+      "seq": 0,
+      "scopedBy": "row.placeId"
+    },
+    {
+      "type": "fires",
+      "from": "trig:place/DirectionsTap",
+      "to": "act:place/PreviewRoute",
+      "seq": 0,
+      "scopedBy": "SelectedPlaceStore.placeId"
+    },
+    {
+      "type": "fires",
+      "from": "trig:place/StartNavTap",
+      "to": "act:nav/StartNavigation",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:place/ExternalMapsTap",
+      "to": "act:place/HandoffExternal",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:map/RecenterTap",
+      "to": "act:map/Recenter",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:map/LocationFix",
+      "to": "act:map/UpdateLiveLocation",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:nav/EndTap",
+      "to": "act:nav/EndNavigation",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:perm/RequestNeeded",
+      "to": "act:perm/RequestLocation",
+      "seq": 0
+    },
+    {
+      "type": "guardedBy",
+      "from": "trig:search/Submit",
+      "to": "assert:search/QueryValid",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:nav/StartNavigation",
+      "to": "assert:nav/RouteReady",
+      "polarity": "require"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:search/QueryValid",
+      "to": "vs:search/QueryText"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:nav/RouteReady",
+      "to": "store:RouteStore"
+    },
+    {
+      "type": "navigates",
+      "from": "act:search/PresentResults",
+      "to": "screen:search/Results",
+      "present": "sheet"
+    },
+    {
+      "type": "navigates",
+      "from": "act:place/OpenDetail",
+      "to": "screen:place/Detail",
+      "present": "sheet"
+    },
+    {
+      "type": "navigates",
+      "from": "act:place/PreviewRoute",
+      "to": "screen:nav/TurnByTurn",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:nav/StartNavigation",
+      "to": "screen:nav/TurnByTurn",
+      "present": "fullScreen"
+    },
+    {
+      "type": "navigates",
+      "from": "act:place/HandoffExternal",
+      "to": "x-ext:nav/ExternalMaps",
+      "present": "sheet"
+    },
+    {
+      "type": "navigates",
+      "from": "act:perm/RequestLocation",
+      "to": "x-ext:perm/LocationGate",
+      "present": "sheet"
+    },
+    {
+      "type": "setsViewState",
+      "from": "act:search/UpdateQuery",
+      "to": "vs:search/QueryText"
+    },
+    {
+      "type": "setsViewState",
+      "from": "act:map/Recenter",
+      "to": "vs:map/Camera"
+    },
+    {
+      "type": "reads",
+      "from": "act:search/RunSearch",
+      "to": "ds:places/Search",
+      "cachePolicy": "fresh"
+    },
+    {
+      "type": "writes",
+      "from": "act:place/PreviewRoute",
+      "to": "store:RouteStore",
+      "mode": "set"
+    },
+    {
+      "type": "writes",
+      "from": "act:nav/StartNavigation",
+      "to": "store:RouteStore",
+      "mode": "set"
+    },
+    {
+      "type": "invokes",
+      "from": "act:nav/StartNavigation",
+      "to": "op:routing/Compute",
+      "awaits": true,
+      "idempotent": true
+    },
+    {
+      "type": "emits",
+      "from": "act:nav/StartNavigation",
+      "to": "fx:analytics/NavStarted",
+      "effect": "analytics"
+    },
+    {
+      "type": "writes",
+      "from": "act:nav/EndNavigation",
+      "to": "store:RouteStore",
+      "mode": "delete"
+    },
+    {
+      "type": "dismisses",
+      "from": "act:nav/EndNavigation",
+      "to": "screen:nav/TurnByTurn",
+      "target": "self"
+    },
+    {
+      "type": "writes",
+      "from": "act:map/UpdateLiveLocation",
+      "to": "store:LiveLocationStore",
+      "mode": "set"
+    },
+    {
+      "type": "produces",
+      "from": "op:routing/Compute",
+      "to": "store:RouteStore",
+      "artifact": "route"
+    },
+    {
+      "type": "x-ext:returnsTo",
+      "from": "x-ext:perm/LocationGate",
+      "to": "screen:map/Home",
+      "present": "replace-root",
+      "when": "granted"
+    },
+    {
+      "type": "x-ext:returnsTo",
+      "from": "x-ext:perm/LocationGate",
+      "to": "screen:map/Degraded",
+      "present": "replace-root",
+      "when": "denied"
+    },
+    {
+      "type": "x-ext:returnsTo",
+      "from": "x-ext:perm/LocationGate",
+      "to": "screen:settings/LocationNudge",
+      "present": "push",
+      "when": "limited"
+    },
+    {
+      "type": "fires",
+      "from": "x-ext:perm/LocationGate",
+      "to": "trig:map/LocationFix",
+      "seq": 0
+    },
+    {
+      "type": "emits",
+      "from": "x-ext:perm/LocationGate",
+      "to": "fx:analytics/LocationGranted",
+      "effect": "analytics"
+    },
+    {
+      "type": "x-ext:returnsTo",
+      "from": "x-ext:nav/ExternalMaps",
+      "to": "screen:place/Detail",
+      "present": "replace-root",
+      "when": "success"
+    },
+    {
+      "type": "x-ext:returnsTo",
+      "from": "x-ext:nav/ExternalMaps",
+      "to": "screen:place/Detail",
+      "present": "sheet",
+      "when": "cancelled"
+    },
+    {
+      "type": "x-ext:returnsTo",
+      "from": "x-ext:nav/ExternalMaps",
+      "to": "screen:place/Detail",
+      "present": "sheet",
+      "when": "failed"
+    },
+    {
+      "type": "emits",
+      "from": "x-ext:nav/ExternalMaps",
+      "to": "fx:system/OpenExternalMaps",
+      "effect": "openURL"
+    }
+  ]
+}

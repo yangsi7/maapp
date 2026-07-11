@@ -1,0 +1,52 @@
+---
+source: tests/query.rs
+expression: rs
+---
+{
+  "id": "screen:chat/ConversationList",
+  "layer": "surface",
+  "node": {
+    "kind": "Screen",
+    "intent": "Inbox: all conversations, newest-active first; unread badges.",
+    "refs": {}
+  },
+  "out_edges": [
+    {
+      "type": "handles",
+      "from": "screen:chat/ConversationList",
+      "to": "trig:list/RowTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/ConversationList",
+      "to": "trig:list/ComposeTap",
+      "event": "tap"
+    },
+    {
+      "type": "renders",
+      "from": "screen:chat/ConversationList",
+      "to": "comp:chat/ConversationRow",
+      "repeat": true
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/ConversationList",
+      "to": "trig:list/SearchTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/ConversationList",
+      "to": "trig:list/NewMessageTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/ConversationList",
+      "to": "trig:list/SettingsTap",
+      "event": "tap"
+    }
+  ],
+  "in_edges": []
+}

@@ -1,0 +1,7 @@
+---
+source: tests/query.rs
+expression: rs
+---
+{
+  "orphans": []
+}

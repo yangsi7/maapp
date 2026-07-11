@@ -1,0 +1,1476 @@
+{
+  "meta": {
+    "schema": "chat-graph",
+    "version": "1.3",
+    "vocab": "spec/EDGE-VOCABULARY.md",
+    "query": "graph query <node|neighbors|blast-radius|trace|view|orphans> [args] <file>",
+    "validate": "graph validate <file>",
+    "lints": []
+  },
+  "schema": "chat-graph",
+  "version": "1.3",
+  "nodeKindRegistry": {
+    "x-ext:ExternalSurface": {
+      "kind": "x-ext:ExternalSurface",
+      "layer": "boundary",
+      "legal_in_edges": [
+        "navigates"
+      ],
+      "legal_out_edges": [
+        "returnsTo",
+        "fires",
+        "emits"
+      ],
+      "attrs": {
+        "surfaceKind": [
+          "osShareSheet",
+          "applePaySheet",
+          "oauthRedirect",
+          "threeDSChallenge",
+          "externalApp"
+        ],
+        "outcome": [
+          "success",
+          "cancelled",
+          "failed"
+        ]
+      }
+    },
+    "x-ext:PermissionGate": {
+      "kind": "x-ext:PermissionGate",
+      "layer": "boundary",
+      "legal_in_edges": [
+        "navigates",
+        "fires"
+      ],
+      "legal_out_edges": [
+        "returnsTo",
+        "fires",
+        "emits"
+      ],
+      "attrs": {
+        "outcome": [
+          "granted",
+          "denied",
+          "limited"
+        ],
+        "persistent": true,
+        "rePromptable": true
+      }
+    }
+  },
+  "edgeRegistry": {
+    "x-pipeline:feeds": {
+      "ns": "x-pipeline",
+      "from_kinds": [
+        "PipelineStage"
+      ],
+      "to_kinds": [
+        "PipelineStage"
+      ],
+      "family": "PIPELINE",
+      "subPropertyOf": "invokes",
+      "attrs": {
+        "transport": [
+          "enqueue",
+          "inline"
+        ]
+      }
+    },
+    "x-pipeline:consumes": {
+      "ns": "x-pipeline",
+      "from_kinds": [
+        "StateStore"
+      ],
+      "to_kinds": [
+        "PipelineStage"
+      ],
+      "family": "QUERY",
+      "subPropertyOf": "reads",
+      "attrs": {}
+    },
+    "x-behavior:reconciles": {
+      "ns": "x-behavior",
+      "from_kinds": [
+        "BackendOp"
+      ],
+      "to_kinds": [
+        "StateStore"
+      ],
+      "family": "COMMAND",
+      "subPropertyOf": "writes",
+      "attrs": {
+        "onFailure": [
+          "rollback",
+          "retain",
+          "escalate"
+        ]
+      }
+    },
+    "x-ext:returnsTo": {
+      "ns": "x-ext",
+      "from_kinds": [
+        "x-ext:ExternalSurface",
+        "x-ext:PermissionGate"
+      ],
+      "to_kinds": [
+        "Screen",
+        "NavContainer"
+      ],
+      "family": "NAV",
+      "subPropertyOf": "navigates",
+      "attrs": {
+        "when": "<outcome-value|\"else\">",
+        "writesBack": "<StateStore.key>"
+      }
+    }
+  },
+  "attrEnumRegistry": {
+    "handles.event": [
+      "x-rt:socketMessage"
+    ]
+  },
+  "nodeKinds": {
+    "surface": [
+      "Screen",
+      "Component",
+      "NavContainer"
+    ],
+    "logic": [
+      "Trigger",
+      "NavAction",
+      "MutationAction",
+      "EffectAction",
+      "ViewStateAction",
+      "QueryAction",
+      "ViewState",
+      "Assertion"
+    ],
+    "substrate": [
+      "StateStore",
+      "DataSource",
+      "BackendOp",
+      "PipelineStage",
+      "SideEffect"
+    ],
+    "policy": [
+      "Policy"
+    ],
+    "boundary": [
+      "x-ext:ExternalSurface",
+      "x-ext:PermissionGate"
+    ]
+  },
+  "nodes": {
+    "surface": {
+      "screen:chat/ConversationList": {
+        "kind": "Screen",
+        "intent": "Inbox: all conversations, newest-active first; unread badges.",
+        "refs": {}
+      },
+      "screen:chat/Thread": {
+        "kind": "Screen",
+        "intent": "One conversation: message log + compose bar; optimistic send + realtime inbound land here.",
+        "refs": {}
+      },
+      "screen:chat/Search": {
+        "kind": "Screen",
+        "intent": "Search across conversations and messages from the inbox; tap a result to open its thread.",
+        "refs": {}
+      },
+      "screen:chat/ConversationInfo": {
+        "kind": "Screen",
+        "intent": "Conversation/group details: participants, shared media, and mute/notification settings (display + settings surface).",
+        "refs": {}
+      },
+      "screen:chat/Profile": {
+        "kind": "Screen",
+        "intent": "A participant's contact/profile card, reached from the participant list.",
+        "refs": {}
+      },
+      "screen:chat/SharedMedia": {
+        "kind": "Screen",
+        "intent": "Grid of all images/attachments shared in the conversation; tap a thumbnail to open the viewer.",
+        "refs": {}
+      },
+      "screen:chat/MediaViewer": {
+        "kind": "Screen",
+        "intent": "Fullscreen image/media lightbox for a tapped image message or shared-media thumbnail.",
+        "refs": {}
+      },
+      "comp:chat/ConversationRow": {
+        "kind": "Component",
+        "intent": "One inbox row: avatar, name, last-message preview, unread dot.",
+        "refs": {}
+      },
+      "comp:chat/MessageList": {
+        "kind": "Component",
+        "intent": "Scrollable message bubbles bound to the thread store; reflects optimistic + reconciled state.",
+        "refs": {}
+      },
+      "comp:chat/ComposeBar": {
+        "kind": "Component",
+        "intent": "Text field + attachment button + send button.",
+        "refs": {}
+      },
+      "comp:chat/MessageBubble": {
+        "kind": "Component",
+        "intent": "One message; shows sending/sent/failed status from its message record.",
+        "refs": {}
+      },
+      "comp:chat/TypingIndicator": {
+        "kind": "Component",
+        "intent": "Animated dots when the peer is typing; bound to a transient view state.",
+        "refs": {}
+      },
+      "screen:chat/NewConversation": {
+        "kind": "Screen",
+        "intent": "New-message recipient picker: choose contact(s) to start or open a conversation; entry to group creation.",
+        "refs": {}
+      },
+      "screen:chat/NewGroup": {
+        "kind": "Screen",
+        "intent": "Create a group: name it, pick participants, then open the new group thread.",
+        "refs": {}
+      },
+      "screen:chat/Settings": {
+        "kind": "Screen",
+        "intent": "App settings: account, notifications, privacy.",
+        "refs": {}
+      }
+    },
+    "logic": {
+      "trig:list/RowTap": {
+        "kind": "Trigger",
+        "intent": "User taps a conversation row.",
+        "refs": {}
+      },
+      "trig:list/ComposeTap": {
+        "kind": "Trigger",
+        "intent": "User taps the new-message compose button.",
+        "refs": {}
+      },
+      "trig:thread/Back": {
+        "kind": "Trigger",
+        "intent": "User taps back from the thread.",
+        "refs": {}
+      },
+      "trig:thread/Appear": {
+        "kind": "Trigger",
+        "intent": "Thread appears; subscribe to realtime + load history.",
+        "refs": {}
+      },
+      "trig:thread/TextChange": {
+        "kind": "Trigger",
+        "intent": "User edits the compose text field.",
+        "refs": {}
+      },
+      "trig:thread/SendTap": {
+        "kind": "Trigger",
+        "intent": "User taps send.",
+        "refs": {}
+      },
+      "trig:thread/AttachTap": {
+        "kind": "Trigger",
+        "intent": "User taps the attachment button.",
+        "refs": {}
+      },
+      "trig:thread/RetryTap": {
+        "kind": "Trigger",
+        "intent": "User taps retry on a failed message bubble.",
+        "refs": {}
+      },
+      "trig:thread/InboundArrive": {
+        "kind": "Trigger",
+        "intent": "A realtime inbound message arrives over the socket.",
+        "refs": {}
+      },
+      "trig:list/SearchTap": {
+        "kind": "Trigger",
+        "intent": "User taps the search field in the inbox.",
+        "refs": {}
+      },
+      "trig:search/ResultTap": {
+        "kind": "Trigger",
+        "intent": "User taps a search result row.",
+        "refs": {}
+      },
+      "trig:search/Back": {
+        "kind": "Trigger",
+        "intent": "User taps back from search.",
+        "refs": {}
+      },
+      "trig:thread/TitleTap": {
+        "kind": "Trigger",
+        "intent": "User taps the conversation title/header in the thread.",
+        "refs": {}
+      },
+      "trig:thread/MediaTap": {
+        "kind": "Trigger",
+        "intent": "User taps an image attachment in a message bubble.",
+        "refs": {}
+      },
+      "trig:info/ParticipantTap": {
+        "kind": "Trigger",
+        "intent": "User taps a participant in the conversation info.",
+        "refs": {}
+      },
+      "trig:info/MediaTap": {
+        "kind": "Trigger",
+        "intent": "User taps the shared-media section to see all media.",
+        "refs": {}
+      },
+      "trig:info/Back": {
+        "kind": "Trigger",
+        "intent": "User taps back from conversation info.",
+        "refs": {}
+      },
+      "trig:profile/Back": {
+        "kind": "Trigger",
+        "intent": "User taps back from a profile.",
+        "refs": {}
+      },
+      "trig:shared/ThumbTap": {
+        "kind": "Trigger",
+        "intent": "User taps a media thumbnail in the shared-media grid.",
+        "refs": {}
+      },
+      "trig:shared/Back": {
+        "kind": "Trigger",
+        "intent": "User taps back from shared media.",
+        "refs": {}
+      },
+      "trig:viewer/Back": {
+        "kind": "Trigger",
+        "intent": "User taps close (or drags down) to dismiss the media viewer.",
+        "refs": {}
+      },
+      "act:list/OpenThread": {
+        "kind": "NavAction",
+        "intent": "Push the tapped conversation's thread.",
+        "refs": {}
+      },
+      "act:list/StartCompose": {
+        "kind": "MutationAction",
+        "intent": "Create a draft conversation AND open its thread (save-and-advance, G15).",
+        "refs": {}
+      },
+      "act:thread/GoBack": {
+        "kind": "NavAction",
+        "intent": "Pop the thread back to the inbox.",
+        "refs": {}
+      },
+      "act:thread/Subscribe": {
+        "kind": "MutationAction",
+        "intent": "Subscribe to the realtime channel and load message history.",
+        "refs": {}
+      },
+      "act:thread/EditDraft": {
+        "kind": "ViewStateAction",
+        "intent": "Write the typed text + validity into local compose view state.",
+        "refs": {}
+      },
+      "act:thread/SendMessage": {
+        "kind": "MutationAction",
+        "intent": "Optimistically append the message, invoke the send backend op, emit a haptic (guarded by non-empty draft).",
+        "refs": {}
+      },
+      "act:thread/PresentPicker": {
+        "kind": "NavAction",
+        "intent": "Present the OS photo/attachment picker.",
+        "refs": {}
+      },
+      "act:thread/RetrySend": {
+        "kind": "MutationAction",
+        "intent": "Re-flip a failed message back to sending and re-invoke the send op (idempotent on the client-message id).",
+        "refs": {}
+      },
+      "act:thread/IngestInbound": {
+        "kind": "MutationAction",
+        "intent": "Hand the arrived realtime payload to the ingest stage.",
+        "refs": {}
+      },
+      "act:list/OpenSearch": {
+        "kind": "NavAction",
+        "intent": "Push the search screen.",
+        "refs": {}
+      },
+      "act:search/OpenResult": {
+        "kind": "NavAction",
+        "intent": "Push the tapped result's conversation thread.",
+        "refs": {}
+      },
+      "act:search/GoBack": {
+        "kind": "NavAction",
+        "intent": "Pop search back to the inbox.",
+        "refs": {}
+      },
+      "act:thread/OpenInfo": {
+        "kind": "NavAction",
+        "intent": "Push the conversation/group info screen.",
+        "refs": {}
+      },
+      "act:thread/OpenMedia": {
+        "kind": "NavAction",
+        "intent": "Present the tapped image fullscreen in the media viewer.",
+        "refs": {}
+      },
+      "act:info/OpenProfile": {
+        "kind": "NavAction",
+        "intent": "Push the tapped participant's profile.",
+        "refs": {}
+      },
+      "act:info/OpenSharedMedia": {
+        "kind": "NavAction",
+        "intent": "Push the shared-media grid.",
+        "refs": {}
+      },
+      "act:info/GoBack": {
+        "kind": "NavAction",
+        "intent": "Pop conversation info back to the thread.",
+        "refs": {}
+      },
+      "act:profile/GoBack": {
+        "kind": "NavAction",
+        "intent": "Pop the profile back to conversation info.",
+        "refs": {}
+      },
+      "act:shared/OpenMedia": {
+        "kind": "NavAction",
+        "intent": "Present the tapped thumbnail fullscreen in the media viewer.",
+        "refs": {}
+      },
+      "act:shared/GoBack": {
+        "kind": "NavAction",
+        "intent": "Pop shared media back to conversation info.",
+        "refs": {}
+      },
+      "act:viewer/GoBack": {
+        "kind": "NavAction",
+        "intent": "Dismiss the media viewer back to its opener.",
+        "refs": {}
+      },
+      "vs:thread/Compose": {
+        "kind": "ViewState",
+        "intent": "Local compose state: draft text, attachment token, send-in-flight flag.",
+        "refs": {},
+        "attrs": {
+          "phase": "live"
+        }
+      },
+      "vs:thread/Typing": {
+        "kind": "ViewState",
+        "intent": "Peer-typing transient state driven by realtime presence events.",
+        "refs": {},
+        "attrs": {
+          "phase": "live"
+        }
+      },
+      "vs:thread/HistoryLoad": {
+        "kind": "ViewState",
+        "intent": "Empty/loading/error state for the message list before history + realtime hydrate.",
+        "refs": {},
+        "attrs": {
+          "phase": "loading"
+        }
+      },
+      "assert:thread/DraftSendable": {
+        "kind": "Assertion",
+        "intent": "Draft has non-empty text or an attachment, and no send is already in flight.",
+        "refs": {}
+      },
+      "assert:thread/MessageFailed": {
+        "kind": "Assertion",
+        "intent": "The target message record is currently in the failed state; retry is only valid on a send that has actually failed.",
+        "refs": {}
+      },
+      "assert:thread/Connected": {
+        "kind": "Assertion",
+        "intent": "The connection is up (realtime/network reachable) before the send op is attempted; offline blocks/queues the POST.",
+        "refs": {}
+      },
+      "assert:thread/AttachmentValid": {
+        "kind": "Assertion",
+        "intent": "The picked attachment passes type and size limits before the upload op runs.",
+        "refs": {}
+      },
+      "assert:thread/SubscriptionActive": {
+        "kind": "Assertion",
+        "intent": "A realtime subscription/channel is active before an inbound frame is ingested; orphan frames off a dead socket are dropped.",
+        "refs": {}
+      },
+      "assert:thread/ConversationResolved": {
+        "kind": "Assertion",
+        "intent": "The conversation is resolved/known before subscribing to its channel and loading its history.",
+        "refs": {}
+      },
+      "trig:list/NewMessageTap": {
+        "kind": "Trigger",
+        "intent": "User taps the new-message / compose entry to pick a recipient.",
+        "refs": {}
+      },
+      "act:list/OpenNewConversation": {
+        "kind": "NavAction",
+        "intent": "Push the new-conversation recipient picker.",
+        "refs": {}
+      },
+      "trig:newconv/RecipientTap": {
+        "kind": "Trigger",
+        "intent": "User taps a contact to start/open a 1:1 conversation.",
+        "refs": {}
+      },
+      "act:newconv/StartThread": {
+        "kind": "NavAction",
+        "intent": "Open the chosen recipient's thread.",
+        "refs": {}
+      },
+      "trig:newconv/NewGroupTap": {
+        "kind": "Trigger",
+        "intent": "User taps new-group to create a group.",
+        "refs": {}
+      },
+      "act:newconv/OpenNewGroup": {
+        "kind": "NavAction",
+        "intent": "Push the group-creation screen.",
+        "refs": {}
+      },
+      "trig:newconv/Cancel": {
+        "kind": "Trigger",
+        "intent": "User cancels the recipient picker.",
+        "refs": {}
+      },
+      "act:newconv/GoBack": {
+        "kind": "NavAction",
+        "intent": "Dismiss the recipient picker back to the inbox.",
+        "refs": {}
+      },
+      "trig:newgroup/CreateTap": {
+        "kind": "Trigger",
+        "intent": "User confirms group name + participants.",
+        "refs": {}
+      },
+      "act:newgroup/CreateGroup": {
+        "kind": "MutationAction",
+        "intent": "Create the group conversation and open its thread (save-and-advance).",
+        "refs": {}
+      },
+      "trig:newgroup/Back": {
+        "kind": "Trigger",
+        "intent": "User taps back from group creation.",
+        "refs": {}
+      },
+      "act:newgroup/GoBack": {
+        "kind": "NavAction",
+        "intent": "Dismiss group creation back to the recipient picker.",
+        "refs": {}
+      },
+      "trig:list/SettingsTap": {
+        "kind": "Trigger",
+        "intent": "User taps settings from the inbox.",
+        "refs": {}
+      },
+      "act:list/OpenSettings": {
+        "kind": "NavAction",
+        "intent": "Push the settings screen.",
+        "refs": {}
+      },
+      "trig:settings/Back": {
+        "kind": "Trigger",
+        "intent": "User taps back from settings.",
+        "refs": {}
+      },
+      "act:settings/GoBack": {
+        "kind": "NavAction",
+        "intent": "Dismiss settings back to the inbox.",
+        "refs": {}
+      }
+    },
+    "substrate": {
+      "store:ThreadStore": {
+        "kind": "StateStore",
+        "intent": "Source of truth for messages in the open thread; holds optimistic + confirmed records keyed by client-message id.",
+        "refs": {}
+      },
+      "store:ConversationStore": {
+        "kind": "StateStore",
+        "intent": "Conversation list: participants, last-message preview, unread counts.",
+        "refs": {}
+      },
+      "store:InboundBuffer": {
+        "kind": "StateStore",
+        "intent": "Raw realtime inbound frames staged off the socket before dedup/ordering.",
+        "refs": {}
+      },
+      "ds:realtime/Socket": {
+        "kind": "DataSource",
+        "intent": "Realtime websocket: inbound message + presence/typing fan-in origin.",
+        "refs": {}
+      },
+      "op:chat/SendMessage": {
+        "kind": "BackendOp",
+        "intent": "POST the message to the server; confirms or fails the optimistic record.",
+        "refs": {}
+      },
+      "op:chat/UploadAttachment": {
+        "kind": "BackendOp",
+        "intent": "Upload the picked attachment and return a media token.",
+        "refs": {}
+      },
+      "stage:rt/Ingest": {
+        "kind": "PipelineStage",
+        "intent": "Realtime inbound ingest: dedup, order, and reconcile inbound frames into the thread store.",
+        "attrs": {
+          "llm": false,
+          "stage": "INGEST"
+        },
+        "refs": {}
+      },
+      "fx:haptic/Send": {
+        "kind": "SideEffect",
+        "intent": "Light haptic tap on send.",
+        "refs": {}
+      },
+      "fx:analytics/MessageSent": {
+        "kind": "SideEffect",
+        "intent": "Analytics: message_sent.",
+        "refs": {}
+      },
+      "fx:analytics/AttachmentPicked": {
+        "kind": "SideEffect",
+        "intent": "Analytics: attachment_picked.",
+        "refs": {}
+      },
+      "store:ContactsStore": {
+        "kind": "StateStore",
+        "intent": "Contacts / known users directory: backs profile cards and the recipient picker.",
+        "refs": {}
+      },
+      "store:CurrentUserStore": {
+        "kind": "StateStore",
+        "intent": "Signed-in user account and session/profile.",
+        "refs": {}
+      },
+      "store:NotificationSettingsStore": {
+        "kind": "StateStore",
+        "intent": "Per-conversation mute / notification preferences.",
+        "refs": {}
+      }
+    },
+    "policy": {},
+    "boundary": {
+      "x-ext:pick/AttachmentSheet": {
+        "kind": "x-ext:ExternalSurface",
+        "intent": "OS photo/file picker handoff; returns a picked asset or cancels.",
+        "refs": {},
+        "attrs": {
+          "surfaceKind": "osShareSheet",
+          "outcome": "success"
+        }
+      }
+    }
+  },
+  "edges": [
+    {
+      "type": "handles",
+      "from": "screen:chat/ConversationList",
+      "to": "trig:list/RowTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/ConversationList",
+      "to": "trig:list/ComposeTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/Thread",
+      "to": "trig:thread/Back",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/Thread",
+      "to": "trig:thread/Appear",
+      "event": "appear"
+    },
+    {
+      "type": "handles",
+      "from": "comp:chat/ComposeBar",
+      "to": "trig:thread/TextChange",
+      "event": "change"
+    },
+    {
+      "type": "handles",
+      "from": "comp:chat/ComposeBar",
+      "to": "trig:thread/SendTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "comp:chat/ComposeBar",
+      "to": "trig:thread/AttachTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "comp:chat/MessageBubble",
+      "to": "trig:thread/RetryTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/Thread",
+      "to": "trig:thread/InboundArrive",
+      "event": "x-rt:socketMessage"
+    },
+    {
+      "type": "renders",
+      "from": "screen:chat/ConversationList",
+      "to": "comp:chat/ConversationRow",
+      "repeat": true
+    },
+    {
+      "type": "renders",
+      "from": "screen:chat/Thread",
+      "to": "comp:chat/MessageList",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:chat/Thread",
+      "to": "comp:chat/ComposeBar",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:chat/Thread",
+      "to": "comp:chat/TypingIndicator",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:chat/Thread",
+      "to": "comp:chat/MessageBubble",
+      "repeat": true
+    },
+    {
+      "type": "binds",
+      "from": "comp:chat/ConversationRow",
+      "to": "store:ConversationStore",
+      "scopedBy": "row.conversationId"
+    },
+    {
+      "type": "binds",
+      "from": "comp:chat/MessageList",
+      "to": "store:ThreadStore",
+      "scopedBy": "ThreadStore.conversationId"
+    },
+    {
+      "type": "binds",
+      "from": "comp:chat/MessageList",
+      "to": "vs:thread/HistoryLoad"
+    },
+    {
+      "type": "binds",
+      "from": "comp:chat/MessageBubble",
+      "to": "store:ThreadStore",
+      "scopedBy": "message.clientId"
+    },
+    {
+      "type": "binds",
+      "from": "comp:chat/ComposeBar",
+      "to": "vs:thread/Compose"
+    },
+    {
+      "type": "binds",
+      "from": "comp:chat/TypingIndicator",
+      "to": "vs:thread/Typing"
+    },
+    {
+      "type": "fires",
+      "from": "trig:list/RowTap",
+      "to": "act:list/OpenThread",
+      "seq": 0,
+      "scopedBy": "row.conversationId"
+    },
+    {
+      "type": "fires",
+      "from": "trig:list/ComposeTap",
+      "to": "act:list/StartCompose",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:thread/Back",
+      "to": "act:thread/GoBack",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:thread/Appear",
+      "to": "act:thread/Subscribe",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:thread/TextChange",
+      "to": "act:thread/EditDraft",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:thread/SendTap",
+      "to": "act:thread/SendMessage",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:thread/AttachTap",
+      "to": "act:thread/PresentPicker",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:thread/RetryTap",
+      "to": "act:thread/RetrySend",
+      "seq": 0,
+      "scopedBy": "message.clientId"
+    },
+    {
+      "type": "fires",
+      "from": "trig:thread/InboundArrive",
+      "to": "act:thread/IngestInbound",
+      "seq": 0
+    },
+    {
+      "type": "navigates",
+      "from": "act:list/OpenThread",
+      "to": "screen:chat/Thread",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:list/StartCompose",
+      "to": "screen:chat/Thread",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:thread/PresentPicker",
+      "to": "x-ext:pick/AttachmentSheet",
+      "present": "sheet"
+    },
+    {
+      "type": "dismisses",
+      "from": "act:thread/GoBack",
+      "to": "screen:chat/Thread",
+      "target": "self"
+    },
+    {
+      "type": "writes",
+      "from": "act:list/StartCompose",
+      "to": "store:ConversationStore",
+      "mode": "append"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:thread/SendMessage",
+      "to": "assert:thread/DraftSendable",
+      "polarity": "require"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:thread/DraftSendable",
+      "to": "vs:thread/Compose"
+    },
+    {
+      "type": "setsViewState",
+      "from": "act:thread/EditDraft",
+      "to": "vs:thread/Compose"
+    },
+    {
+      "type": "writes",
+      "from": "act:thread/SendMessage",
+      "to": "store:ThreadStore",
+      "mode": "append",
+      "optimistic": true,
+      "scopedBy": "ThreadStore.conversationId"
+    },
+    {
+      "type": "invokes",
+      "from": "act:thread/SendMessage",
+      "to": "op:chat/SendMessage",
+      "awaits": true,
+      "idempotent": true
+    },
+    {
+      "type": "emits",
+      "from": "act:thread/SendMessage",
+      "to": "fx:haptic/Send",
+      "effect": "haptic"
+    },
+    {
+      "type": "emits",
+      "from": "act:thread/SendMessage",
+      "to": "fx:analytics/MessageSent",
+      "effect": "analytics"
+    },
+    {
+      "type": "writes",
+      "from": "act:thread/RetrySend",
+      "to": "store:ThreadStore",
+      "mode": "set",
+      "optimistic": true,
+      "scopedBy": "message.clientId"
+    },
+    {
+      "type": "invokes",
+      "from": "act:thread/RetrySend",
+      "to": "op:chat/SendMessage",
+      "awaits": true,
+      "idempotent": true
+    },
+    {
+      "type": "x-behavior:reconciles",
+      "from": "op:chat/SendMessage",
+      "to": "store:ThreadStore",
+      "onFailure": "rollback"
+    },
+    {
+      "type": "invokes",
+      "from": "act:thread/Subscribe",
+      "to": "stage:rt/Ingest",
+      "awaits": false
+    },
+    {
+      "type": "writes",
+      "from": "act:thread/IngestInbound",
+      "to": "store:InboundBuffer",
+      "mode": "append"
+    },
+    {
+      "type": "invokes",
+      "from": "act:thread/IngestInbound",
+      "to": "stage:rt/Ingest",
+      "awaits": false
+    },
+    {
+      "type": "reads",
+      "from": "stage:rt/Ingest",
+      "to": "ds:realtime/Socket",
+      "cachePolicy": "fresh"
+    },
+    {
+      "type": "x-pipeline:consumes",
+      "from": "store:InboundBuffer",
+      "to": "stage:rt/Ingest"
+    },
+    {
+      "type": "x-pipeline:consumes",
+      "from": "store:ThreadStore",
+      "to": "stage:rt/Ingest"
+    },
+    {
+      "type": "produces",
+      "from": "stage:rt/Ingest",
+      "to": "store:ThreadStore",
+      "artifact": "inboundMessages"
+    },
+    {
+      "type": "invokes",
+      "from": "act:thread/SendMessage",
+      "to": "op:chat/UploadAttachment",
+      "awaits": true
+    },
+    {
+      "type": "produces",
+      "from": "op:chat/UploadAttachment",
+      "to": "store:ThreadStore",
+      "artifact": "mediaToken"
+    },
+    {
+      "type": "x-ext:returnsTo",
+      "from": "x-ext:pick/AttachmentSheet",
+      "to": "screen:chat/Thread",
+      "present": "replace-root",
+      "when": "success",
+      "writesBack": "vs:thread/Compose.attachmentToken"
+    },
+    {
+      "type": "x-ext:returnsTo",
+      "from": "x-ext:pick/AttachmentSheet",
+      "to": "screen:chat/Thread",
+      "present": "replace-root",
+      "when": "cancelled"
+    },
+    {
+      "type": "x-ext:returnsTo",
+      "from": "x-ext:pick/AttachmentSheet",
+      "to": "screen:chat/Thread",
+      "present": "replace-root",
+      "when": "failed"
+    },
+    {
+      "type": "emits",
+      "from": "x-ext:pick/AttachmentSheet",
+      "to": "fx:analytics/AttachmentPicked",
+      "effect": "analytics"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/ConversationList",
+      "to": "trig:list/SearchTap",
+      "event": "tap"
+    },
+    {
+      "type": "fires",
+      "from": "trig:list/SearchTap",
+      "to": "act:list/OpenSearch",
+      "seq": 0
+    },
+    {
+      "type": "navigates",
+      "from": "act:list/OpenSearch",
+      "to": "screen:chat/Search",
+      "present": "push"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/Search",
+      "to": "trig:search/ResultTap",
+      "event": "tap"
+    },
+    {
+      "type": "fires",
+      "from": "trig:search/ResultTap",
+      "to": "act:search/OpenResult",
+      "seq": 0,
+      "scopedBy": "row.conversationId"
+    },
+    {
+      "type": "navigates",
+      "from": "act:search/OpenResult",
+      "to": "screen:chat/Thread",
+      "present": "push"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/Search",
+      "to": "trig:search/Back",
+      "event": "tap"
+    },
+    {
+      "type": "fires",
+      "from": "trig:search/Back",
+      "to": "act:search/GoBack",
+      "seq": 0
+    },
+    {
+      "type": "dismisses",
+      "from": "act:search/GoBack",
+      "to": "screen:chat/Search",
+      "target": "self"
+    },
+    {
+      "type": "binds",
+      "from": "screen:chat/Search",
+      "to": "store:ConversationStore"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/Thread",
+      "to": "trig:thread/TitleTap",
+      "event": "tap"
+    },
+    {
+      "type": "fires",
+      "from": "trig:thread/TitleTap",
+      "to": "act:thread/OpenInfo",
+      "seq": 0,
+      "scopedBy": "ThreadStore.conversationId"
+    },
+    {
+      "type": "navigates",
+      "from": "act:thread/OpenInfo",
+      "to": "screen:chat/ConversationInfo",
+      "present": "push"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/ConversationInfo",
+      "to": "trig:info/Back",
+      "event": "tap"
+    },
+    {
+      "type": "fires",
+      "from": "trig:info/Back",
+      "to": "act:info/GoBack",
+      "seq": 0
+    },
+    {
+      "type": "dismisses",
+      "from": "act:info/GoBack",
+      "to": "screen:chat/ConversationInfo",
+      "target": "self"
+    },
+    {
+      "type": "binds",
+      "from": "screen:chat/ConversationInfo",
+      "to": "store:ConversationStore",
+      "scopedBy": "ConversationStore.conversationId"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/ConversationInfo",
+      "to": "trig:info/ParticipantTap",
+      "event": "tap"
+    },
+    {
+      "type": "fires",
+      "from": "trig:info/ParticipantTap",
+      "to": "act:info/OpenProfile",
+      "seq": 0,
+      "scopedBy": "participant.userId"
+    },
+    {
+      "type": "navigates",
+      "from": "act:info/OpenProfile",
+      "to": "screen:chat/Profile",
+      "present": "push"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/Profile",
+      "to": "trig:profile/Back",
+      "event": "tap"
+    },
+    {
+      "type": "fires",
+      "from": "trig:profile/Back",
+      "to": "act:profile/GoBack",
+      "seq": 0
+    },
+    {
+      "type": "dismisses",
+      "from": "act:profile/GoBack",
+      "to": "screen:chat/Profile",
+      "target": "self"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/ConversationInfo",
+      "to": "trig:info/MediaTap",
+      "event": "tap"
+    },
+    {
+      "type": "fires",
+      "from": "trig:info/MediaTap",
+      "to": "act:info/OpenSharedMedia",
+      "seq": 0
+    },
+    {
+      "type": "navigates",
+      "from": "act:info/OpenSharedMedia",
+      "to": "screen:chat/SharedMedia",
+      "present": "push"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/SharedMedia",
+      "to": "trig:shared/ThumbTap",
+      "event": "tap"
+    },
+    {
+      "type": "fires",
+      "from": "trig:shared/ThumbTap",
+      "to": "act:shared/OpenMedia",
+      "seq": 0,
+      "scopedBy": "message.clientId"
+    },
+    {
+      "type": "navigates",
+      "from": "act:shared/OpenMedia",
+      "to": "screen:chat/MediaViewer",
+      "present": "fullScreen"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/SharedMedia",
+      "to": "trig:shared/Back",
+      "event": "tap"
+    },
+    {
+      "type": "fires",
+      "from": "trig:shared/Back",
+      "to": "act:shared/GoBack",
+      "seq": 0
+    },
+    {
+      "type": "dismisses",
+      "from": "act:shared/GoBack",
+      "to": "screen:chat/SharedMedia",
+      "target": "self"
+    },
+    {
+      "type": "binds",
+      "from": "screen:chat/SharedMedia",
+      "to": "store:ThreadStore",
+      "scopedBy": "ThreadStore.conversationId"
+    },
+    {
+      "type": "handles",
+      "from": "comp:chat/MessageBubble",
+      "to": "trig:thread/MediaTap",
+      "event": "tap"
+    },
+    {
+      "type": "fires",
+      "from": "trig:thread/MediaTap",
+      "to": "act:thread/OpenMedia",
+      "seq": 0,
+      "scopedBy": "message.clientId"
+    },
+    {
+      "type": "navigates",
+      "from": "act:thread/OpenMedia",
+      "to": "screen:chat/MediaViewer",
+      "present": "fullScreen"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/MediaViewer",
+      "to": "trig:viewer/Back",
+      "event": "tap"
+    },
+    {
+      "type": "fires",
+      "from": "trig:viewer/Back",
+      "to": "act:viewer/GoBack",
+      "seq": 0
+    },
+    {
+      "type": "dismisses",
+      "from": "act:viewer/GoBack",
+      "to": "screen:chat/MediaViewer",
+      "target": "self"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:thread/RetrySend",
+      "to": "assert:thread/MessageFailed",
+      "polarity": "require"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:thread/MessageFailed",
+      "to": "store:ThreadStore"
+    },
+    {
+      "type": "guardedBy",
+      "from": "op:chat/SendMessage",
+      "to": "assert:thread/Connected",
+      "polarity": "require"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:thread/Connected",
+      "to": "ds:realtime/Socket"
+    },
+    {
+      "type": "guardedBy",
+      "from": "op:chat/UploadAttachment",
+      "to": "assert:thread/AttachmentValid",
+      "polarity": "require"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:thread/AttachmentValid",
+      "to": "vs:thread/Compose"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:thread/IngestInbound",
+      "to": "assert:thread/SubscriptionActive",
+      "polarity": "require"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:thread/SubscriptionActive",
+      "to": "ds:realtime/Socket"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:thread/Subscribe",
+      "to": "assert:thread/ConversationResolved",
+      "polarity": "require"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:thread/ConversationResolved",
+      "to": "store:ConversationStore"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/ConversationList",
+      "to": "trig:list/NewMessageTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/ConversationList",
+      "to": "trig:list/SettingsTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/NewConversation",
+      "to": "trig:newconv/RecipientTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/NewConversation",
+      "to": "trig:newconv/NewGroupTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/NewConversation",
+      "to": "trig:newconv/Cancel",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/NewGroup",
+      "to": "trig:newgroup/CreateTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/NewGroup",
+      "to": "trig:newgroup/Back",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/Settings",
+      "to": "trig:settings/Back",
+      "event": "tap"
+    },
+    {
+      "type": "fires",
+      "from": "trig:list/NewMessageTap",
+      "to": "act:list/OpenNewConversation"
+    },
+    {
+      "type": "fires",
+      "from": "trig:list/SettingsTap",
+      "to": "act:list/OpenSettings"
+    },
+    {
+      "type": "fires",
+      "from": "trig:newconv/RecipientTap",
+      "to": "act:newconv/StartThread"
+    },
+    {
+      "type": "fires",
+      "from": "trig:newconv/NewGroupTap",
+      "to": "act:newconv/OpenNewGroup"
+    },
+    {
+      "type": "fires",
+      "from": "trig:newconv/Cancel",
+      "to": "act:newconv/GoBack"
+    },
+    {
+      "type": "fires",
+      "from": "trig:newgroup/CreateTap",
+      "to": "act:newgroup/CreateGroup"
+    },
+    {
+      "type": "fires",
+      "from": "trig:newgroup/Back",
+      "to": "act:newgroup/GoBack"
+    },
+    {
+      "type": "fires",
+      "from": "trig:settings/Back",
+      "to": "act:settings/GoBack"
+    },
+    {
+      "type": "navigates",
+      "from": "act:list/OpenNewConversation",
+      "to": "screen:chat/NewConversation",
+      "present": "sheet"
+    },
+    {
+      "type": "navigates",
+      "from": "act:list/OpenSettings",
+      "to": "screen:chat/Settings",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:newconv/StartThread",
+      "to": "screen:chat/Thread",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:newconv/OpenNewGroup",
+      "to": "screen:chat/NewGroup",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:newgroup/CreateGroup",
+      "to": "screen:chat/Thread",
+      "present": "push"
+    },
+    {
+      "type": "dismisses",
+      "from": "act:newconv/GoBack",
+      "to": "screen:chat/NewConversation",
+      "target": "self"
+    },
+    {
+      "type": "dismisses",
+      "from": "act:newgroup/GoBack",
+      "to": "screen:chat/NewGroup",
+      "target": "self"
+    },
+    {
+      "type": "dismisses",
+      "from": "act:settings/GoBack",
+      "to": "screen:chat/Settings",
+      "target": "self"
+    },
+    {
+      "type": "writes",
+      "from": "act:newgroup/CreateGroup",
+      "to": "store:ConversationStore",
+      "mode": "append"
+    },
+    {
+      "type": "binds",
+      "from": "screen:chat/Profile",
+      "to": "store:ContactsStore"
+    },
+    {
+      "type": "binds",
+      "from": "screen:chat/NewConversation",
+      "to": "store:ContactsStore"
+    },
+    {
+      "type": "binds",
+      "from": "screen:chat/Settings",
+      "to": "store:CurrentUserStore"
+    },
+    {
+      "type": "binds",
+      "from": "screen:chat/ConversationInfo",
+      "to": "store:NotificationSettingsStore"
+    }
+  ]
+}

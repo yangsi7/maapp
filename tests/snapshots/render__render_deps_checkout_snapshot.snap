@@ -1,0 +1,73 @@
+---
+source: tests/render.rs
+expression: "render_out(&[\"deps\", \"examples/checkout.json\"])"
+---
+# App-Spec Graph — dependency view (generated; do NOT hand-edit)
+
+> The dependency-edge subgraph (filter `.edges[]` to ['binds', 'derivesFrom', 'invokes', 'produces', 'reads', 'writes', 'x-behavior:reconciles', 'x-pipeline:consumes', 'x-pipeline:feeds']). 19 edge(s). Regenerate with `graph render deps`.
+
+## Edge list
+
+| from | edge | to | attrs |
+|---|---|---|---|
+| `act:address/SaveAndContinue` | writes | `store:CheckoutStore` | mode=set |
+| `act:card/SaveCard` | writes | `store:CheckoutStore` | mode=set |
+| `act:cart/UpdateQty` | writes | `store:CartStore` | mode=set, scopedBy=lineItem.id |
+| `act:pay/SelectMethod` | writes | `store:CheckoutStore` | mode=set, scopedBy=method.id |
+| `act:review/PlaceOrder` | invokes | `op:checkout/PlaceOrder` | awaits=True, irreversible=True, idempotent=False |
+| `act:review/PlaceOrder` | writes | `store:CheckoutStore` | mode=set |
+| `assert:address/Valid` | derivesFrom | `vs:address/Form` |  |
+| `assert:pay/CardSelected` | derivesFrom | `store:CheckoutStore` |  |
+| `assert:pay/WalletSelected` | derivesFrom | `store:CheckoutStore` |  |
+| `assert:review/NotSubmitting` | derivesFrom | `vs:checkout/Submitting` |  |
+| `assert:shipping/AddressPresent` | derivesFrom | `store:CheckoutStore` |  |
+| `comp:cart/LineItemList` | binds | `store:CartStore` |  |
+| `comp:cart/OrderSummary` | binds | `store:CartStore` |  |
+| `comp:checkout/AddressCard` | binds | `store:CheckoutStore` |  |
+| `comp:checkout/PlaceOrderButton` | binds | `vs:checkout/Submitting` |  |
+| `op:checkout/PlaceOrder` | produces | `store:OrderStore` | artifact=order |
+| `screen:checkout/AddressForm` | binds | `vs:address/Form` |  |
+| `screen:checkout/Complete` | binds | `store:OrderStore` |  |
+| `screen:checkout/Payment` | binds | `store:CheckoutStore` |  |
+
+## ASCII adjacency (dependency out-edges)
+
+```
+act:address/SaveAndContinue
+  ──writes──▶ store:CheckoutStore
+act:card/SaveCard
+  ──writes──▶ store:CheckoutStore
+act:cart/UpdateQty
+  ──writes──▶ store:CartStore
+act:pay/SelectMethod
+  ──writes──▶ store:CheckoutStore
+act:review/PlaceOrder
+  ──invokes──▶ op:checkout/PlaceOrder
+  ──writes──▶ store:CheckoutStore
+assert:address/Valid
+  ──derivesFrom──▶ vs:address/Form
+assert:pay/CardSelected
+  ──derivesFrom──▶ store:CheckoutStore
+assert:pay/WalletSelected
+  ──derivesFrom──▶ store:CheckoutStore
+assert:review/NotSubmitting
+  ──derivesFrom──▶ vs:checkout/Submitting
+assert:shipping/AddressPresent
+  ──derivesFrom──▶ store:CheckoutStore
+comp:cart/LineItemList
+  ──binds──▶ store:CartStore
+comp:cart/OrderSummary
+  ──binds──▶ store:CartStore
+comp:checkout/AddressCard
+  ──binds──▶ store:CheckoutStore
+comp:checkout/PlaceOrderButton
+  ──binds──▶ vs:checkout/Submitting
+op:checkout/PlaceOrder
+  ──produces──▶ store:OrderStore
+screen:checkout/AddressForm
+  ──binds──▶ vs:address/Form
+screen:checkout/Complete
+  ──binds──▶ store:OrderStore
+screen:checkout/Payment
+  ──binds──▶ store:CheckoutStore
+```

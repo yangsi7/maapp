@@ -1,0 +1,160 @@
+---
+source: tests/render.rs
+expression: "render_out(&[\"storyboard\", \"--ascii\", \"examples/checkout.json\"])"
+---
+================================================================================
+                      STORYBOARD — e-commerce screen flow                       
+                   (screen-first projection of the app-graph)                   
+================================================================================
+nav containers (swimlane, not frames): (none)
+schema checkout-graph v1.3  ·  65 nodes / 88 edges
+
+JOURNEY LANES (left -> right):  L0 cart  ->  L1 checkout
+
+--------------------------------------------------------------------------------
+LANE L0: cart
+--------------------------------------------------------------------------------
+  +------------------------------+
+  | Bag                          |
+  |  [cart]                      |
+  +------------------------------+
+  |  [ LineItemList ]            |
+  |  [ OrderSummary ]            |
+  +==============================+
+  | binds: CartStore             |
+  | writes: CartStore            |
+  +------------------------------+
+
+  +------------------------------+
+  | PromoCode                    |
+  |  [cart]                      |
+  +------------------------------+
+  |  [ (view body) ]             |
+  +==============================+
+  | binds: -                     |
+  | writes: -                    |
+  +------------------------------+
+
+--------------------------------------------------------------------------------
+LANE L1: checkout
+--------------------------------------------------------------------------------
+  +------------------------------+
+  | Complete                     |
+  |  [checkout]                  |
+  +------------------------------+
+  |  [ (view body) ]             |
+  +==============================+
+  | binds: OrderStore            |
+  | writes: -                    |
+  +------------------------------+
+
+  +------------------------------+
+  | Shipping                     |
+  |  [checkout]                  |
+  +------------------------------+
+  |  [ AddressCard ]             |
+  +==============================+
+  | binds: CheckoutStore         |
+  | writes: -                    |
+  +------------------------------+
+
+  +------------------------------+
+  | AddressForm                  |
+  |  [checkout]                  |
+  +------------------------------+
+  |  [ (view body) ]             |
+  +==============================+
+  | binds: vs:*                  |
+  | writes: CheckoutStore        |
+  +------------------------------+
+
+  +------------------------------+
+  | DeliveryMethod               |
+  |  [checkout]                  |
+  +------------------------------+
+  |  [ (view body) ]             |
+  +==============================+
+  | binds: -                     |
+  | writes: -                    |
+  +------------------------------+
+
+  +------------------------------+
+  | Payment                      |
+  |  [checkout]                  |
+  +------------------------------+
+  |  [ (view body) ]             |
+  +==============================+
+  | binds: CheckoutStore         |
+  | writes: CheckoutStore        |
+  +------------------------------+
+
+  +------------------------------+
+  | CardEntry                    |
+  |  [checkout]                  |
+  +------------------------------+
+  |  [ (view body) ]             |
+  +==============================+
+  | binds: -                     |
+  | writes: CheckoutStore        |
+  +------------------------------+
+
+  +------------------------------+
+  | OrderFailed                  |
+  |  [checkout]                  |
+  +------------------------------+
+  |  [ (view body) ]             |
+  +==============================+
+  | binds: -                     |
+  | writes: -                    |
+  +------------------------------+
+
+  +------------------------------+
+  | Review                       |
+  |  [checkout]                  |
+  +------------------------------+
+  |  [ OrderSummary ]            |
+  |  [ AddressCard ]             |
+  |  [ PlaceOrderButton ]        |
+  +==============================+
+  | binds: CartStore, CheckoutSto|
+  | writes: CheckoutStore, OrderS|
+  +------------------------------+
+
+--------------------------------------------------------------------------------
+LANE [boundary]: OS / external handoff surfaces
+--------------------------------------------------------------------------------
+  +~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+
+  | >> ApplePaySheet             |
+  |  [x-ext:ExternalSurface]     |
+  |  outcome: success            |
+  +~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+
+
+================================================================================
+NAVIGATION ARROWS (collapsed handles->fires->navigates)
+================================================================================
+  FROM             -> TO               CONTROL/MODE         GUARD
+  ----------------------------------------------------------------------------
+  Bag              -> PromoCode        PromoTap/sheet       
+  Bag              -> Shipping         CheckoutTap/push     
+  OrderFailed      -> Review           RetryTap/push        
+  Payment          -> CardEntry        ContinueTap/sheet    
+  Payment          -> ApplePaySheet    ContinueTap/sheet    
+  Review           -> OrderFailed      PlaceOrderTap/push   LOCK[NotSubmitting]
+  Shipping         -> AddressForm      EditAddressTap/sheet 
+  Shipping         -> DeliveryMethod   EditDeliveryTap/sheet 
+  Shipping         -> Payment          ContinueTap/push     LOCK[AddressPresent]
+
+RETURN ARROWS (dismiss = thin return to presenter; returnsTo = boundary outcome-branch):
+  PromoCode        ~> Bag              ApplyTap (dismiss)
+  AddressForm      ~> Shipping         CancelTap (dismiss)
+  CardEntry        ~> Payment          SaveTap (dismiss)
+  DeliveryMethod   ~> Shipping         ConfirmTap (dismiss)
+  ApplePaySheet    ~> Payment          when=cancelled/push (returnsTo)
+  ApplePaySheet    ~> Payment          when=failed/push (returnsTo)
+  ApplePaySheet    ~> Review           when=success/root (returnsTo)
+
+LEGEND:
+  [ X ]    component block (renders edge)   : X xN :  repeat:true
+  binds:   StateStores the frame reads-through   writes: mutations it owns (! irreversible)
+  ->       navigates    ~>  dismiss/return    LOCK[..]  guard assertion
+================================================================================
