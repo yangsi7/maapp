@@ -8,6 +8,8 @@ license = "MIT"
 repository = "https://github.com/yangsi7/maapp"
 keywords = ["ai", "agents", "knowledge-graph", "app-structure", "cli"]
 categories = ["command-line-utilities", "development-tools"]
+# CI config + social cards are repo-internal; keep them out of the crates.io tarball.
+exclude = [".github/"]
 
 [[bin]]
 name = "maapp"
