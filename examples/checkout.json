@@ -2,7 +2,7 @@
   "meta": {
     "schema": "checkout-graph",
     "version": "1.4",
-    "vocab": "spec/EDGE-VOCABULARY.md",
+    "vocab": "docs/EDGE-VOCABULARY.md",
     "app": "e-commerce checkout (cart -> shipping -> payment -> confirm -> complete)",
     "mobbin_ref": "Under Armour 'Purchasing a product' flow eab13d90-ca43-4141-80ee-849aabe60726; richer payment-method boundary modeled after SHEIN 'Placing an order' 0509f742",
     "query": "graph query <node|neighbors|blast-radius|trace|view|orphans> [args] <file>",
@@ -127,41 +127,6 @@
   },
   "nodes": {
     "surface": {
-      "screen:cart/Bag": {
-        "kind": "Screen",
-        "intent": "Cart/bag: line items, promos, order summary, Checkout CTA.",
-        "refs": {}
-      },
-      "screen:checkout/Shipping": {
-        "kind": "Screen",
-        "intent": "Shipping/address step: shows saved address + delivery method; Continue to payment.",
-        "refs": {}
-      },
-      "screen:checkout/AddressForm": {
-        "kind": "Screen",
-        "intent": "Address-entry sheet: name/street/city/zip fields with inline validation; Save and continue.",
-        "refs": {}
-      },
-      "screen:checkout/Payment": {
-        "kind": "Screen",
-        "intent": "Payment-method step: radio set (Card / Apple Pay / PayPal); Continue.",
-        "refs": {}
-      },
-      "screen:checkout/CardEntry": {
-        "kind": "Screen",
-        "intent": "Card-entry sheet: card number / expiry / CVV + remember-card toggle; Save card.",
-        "refs": {}
-      },
-      "screen:checkout/Review": {
-        "kind": "Screen",
-        "intent": "Final review/confirm: address + payment + totals; Place Order CTA (duplicate-submit hazard).",
-        "refs": {}
-      },
-      "screen:checkout/Complete": {
-        "kind": "Screen",
-        "intent": "Order complete: 'You're all set', order number, confirmation-email notice.",
-        "refs": {}
-      },
       "comp:cart/LineItemList": {
         "kind": "Component",
         "intent": "Renders the cart line items (image, title, qty stepper, price).",
@@ -175,16 +140,18 @@
       "comp:checkout/AddressCard": {
         "kind": "Component",
         "intent": "Renders the currently-selected shipping address summary.",
-        "refs": {}
+        "refs": {
+          "source": "components/checkout/address-card.tsx"
+        }
       },
       "comp:checkout/PlaceOrderButton": {
         "kind": "Component",
         "intent": "Primary Place-Order button; disabled while a submit is in flight to prevent double-charge.",
         "refs": {}
       },
-      "screen:checkout/DeliveryMethod": {
+      "screen:cart/Bag": {
         "kind": "Screen",
-        "intent": "Delivery-method picker: choose shipping speed (Standard / Express / Overnight) with prices and ETAs; Confirm.",
+        "intent": "Cart/bag: line items, promos, order summary, Checkout CTA.",
         "refs": {}
       },
       "screen:cart/PromoCode": {
@@ -192,66 +159,70 @@
         "intent": "Promo-code sheet: enter and apply a coupon; reflects the discount in the order summary.",
         "refs": {}
       },
+      "screen:checkout/AddressForm": {
+        "kind": "Screen",
+        "intent": "Address-entry sheet: name/street/city/zip fields with inline validation; Save and continue.",
+        "refs": {}
+      },
+      "screen:checkout/CardEntry": {
+        "kind": "Screen",
+        "intent": "Card-entry sheet: card number / expiry / CVV + remember-card toggle; Save card.",
+        "refs": {}
+      },
+      "screen:checkout/Complete": {
+        "kind": "Screen",
+        "intent": "Order complete: 'You're all set', order number, confirmation-email notice.",
+        "refs": {}
+      },
+      "screen:checkout/DeliveryMethod": {
+        "kind": "Screen",
+        "intent": "Delivery-method picker: choose shipping speed (Standard / Express / Overnight) with prices and ETAs; Confirm.",
+        "refs": {}
+      },
       "screen:checkout/OrderFailed": {
         "kind": "Screen",
         "intent": "Order-failed: payment declined / place-order error; shows the reason and a Retry / change-payment CTA.",
         "refs": {}
+      },
+      "screen:checkout/Payment": {
+        "kind": "Screen",
+        "intent": "Payment-method step: radio set (Card / Apple Pay / PayPal); Continue.",
+        "refs": {
+          "source": "app/checkout/payment/page.tsx"
+        }
+      },
+      "screen:checkout/Review": {
+        "kind": "Screen",
+        "intent": "Final review/confirm: address + payment + totals; Place Order CTA (duplicate-submit hazard).",
+        "refs": {
+          "source": "app/checkout/review/page.tsx"
+        }
+      },
+      "screen:checkout/Shipping": {
+        "kind": "Screen",
+        "intent": "Shipping/address step: shows saved address + delivery method; Continue to payment.",
+        "refs": {}
       }
     },
     "logic": {
-      "trig:cart/CheckoutTap": {
-        "kind": "Trigger",
-        "intent": "User taps Checkout on the bag.",
+      "act:address/Cancel": {
+        "kind": "NavAction",
+        "intent": "Dismiss the address form without saving.",
         "refs": {}
       },
-      "trig:cart/QtyChange": {
-        "kind": "Trigger",
-        "intent": "User changes a line-item quantity via the stepper.",
+      "act:address/SaveAndContinue": {
+        "kind": "MutationAction",
+        "intent": "G15: persist the address to the store AND dismiss back to shipping in one tap (save-and-close), guarded by form-valid.",
         "refs": {}
       },
-      "trig:shipping/EditAddressTap": {
-        "kind": "Trigger",
-        "intent": "User taps to edit/add the shipping address.",
+      "act:address/UpdateField": {
+        "kind": "ViewStateAction",
+        "intent": "Write the edited field value into the local address-form view state.",
         "refs": {}
       },
-      "trig:shipping/ContinueTap": {
-        "kind": "Trigger",
-        "intent": "User taps Continue on the shipping step.",
-        "refs": {}
-      },
-      "trig:address/FieldChange": {
-        "kind": "Trigger",
-        "intent": "User edits an address form field (name/street/city/zip).",
-        "refs": {}
-      },
-      "trig:address/SaveTap": {
-        "kind": "Trigger",
-        "intent": "User taps Save & Continue on the address form.",
-        "refs": {}
-      },
-      "trig:address/CancelTap": {
-        "kind": "Trigger",
-        "intent": "User dismisses the address form without saving.",
-        "refs": {}
-      },
-      "trig:pay/MethodSelect": {
-        "kind": "Trigger",
-        "intent": "User selects a payment method radio (Card / Apple Pay / PayPal).",
-        "refs": {}
-      },
-      "trig:pay/ContinueTap": {
-        "kind": "Trigger",
-        "intent": "User taps Continue on the payment step.",
-        "refs": {}
-      },
-      "trig:card/SaveTap": {
-        "kind": "Trigger",
-        "intent": "User taps Save on the card-entry sheet.",
-        "refs": {}
-      },
-      "trig:review/PlaceOrderTap": {
-        "kind": "Trigger",
-        "intent": "User taps Place Order on the review screen.",
+      "act:card/SaveCard": {
+        "kind": "MutationAction",
+        "intent": "G15: tokenize+write the card to the checkout store AND dismiss back to payment in one tap.",
         "refs": {}
       },
       "act:cart/GoToShipping": {
@@ -264,39 +235,24 @@
         "intent": "Emit the checkout-started analytics event (independent fan-out alongside the nav).",
         "refs": {}
       },
+      "act:cart/PresentPromoCode": {
+        "kind": "NavAction",
+        "intent": "Present the promo-code sheet.",
+        "refs": {}
+      },
       "act:cart/UpdateQty": {
         "kind": "MutationAction",
         "intent": "Write the new quantity into the cart store; totals re-derive.",
         "refs": {}
       },
-      "act:shipping/PresentAddressForm": {
+      "act:delivery/Confirm": {
         "kind": "NavAction",
-        "intent": "Present the address-entry sheet.",
+        "intent": "Dismiss the delivery-method picker back to shipping.",
         "refs": {}
       },
-      "act:shipping/Continue": {
+      "act:order/Retry": {
         "kind": "NavAction",
-        "intent": "Advance from shipping to payment (guarded by address-present).",
-        "refs": {}
-      },
-      "act:address/UpdateField": {
-        "kind": "ViewStateAction",
-        "intent": "Write the edited field value into the local address-form view state.",
-        "refs": {}
-      },
-      "act:address/SaveAndContinue": {
-        "kind": "MutationAction",
-        "intent": "G15: persist the address to the store AND dismiss back to shipping in one tap (save-and-close), guarded by form-valid.",
-        "refs": {}
-      },
-      "act:address/Cancel": {
-        "kind": "NavAction",
-        "intent": "Dismiss the address form without saving.",
-        "refs": {}
-      },
-      "act:pay/SelectMethod": {
-        "kind": "MutationAction",
-        "intent": "Write the chosen payment method into the checkout store.",
+        "intent": "Return to the review step to retry placing the order.",
         "refs": {}
       },
       "act:pay/Continue": {
@@ -309,9 +265,14 @@
         "intent": "Present the card-entry sheet when Card is selected.",
         "refs": {}
       },
-      "act:card/SaveCard": {
+      "act:pay/SelectMethod": {
         "kind": "MutationAction",
-        "intent": "G15: tokenize+write the card to the checkout store AND dismiss back to payment in one tap.",
+        "intent": "Write the chosen payment method into the checkout store.",
+        "refs": {}
+      },
+      "act:promo/Apply": {
+        "kind": "NavAction",
+        "intent": "Dismiss the promo-code sheet back to the bag.",
         "refs": {}
       },
       "act:review/PlaceOrder": {
@@ -319,30 +280,24 @@
         "intent": "Submit the order: invoke the irreversible non-idempotent place-order backend op + emit analytics + advance to complete (G15 save-and-advance).",
         "refs": {}
       },
-      "vs:address/Form": {
-        "kind": "ViewState",
-        "intent": "Local address-form field state (name/street/city/zip) before persistence.",
-        "refs": {},
-        "attrs": {
-          "phase": "editing"
-        }
+      "act:shipping/Continue": {
+        "kind": "NavAction",
+        "intent": "Advance from shipping to payment (guarded by address-present).",
+        "refs": {}
       },
-      "vs:checkout/Submitting": {
-        "kind": "ViewState",
-        "intent": "In-flight submit flag; disables Place Order to block duplicate submits.",
-        "refs": {},
-        "attrs": {
-          "phase": "live"
-        }
+      "act:shipping/PresentAddressForm": {
+        "kind": "NavAction",
+        "intent": "Present the address-entry sheet.",
+        "refs": {}
+      },
+      "act:shipping/PresentDeliveryMethod": {
+        "kind": "NavAction",
+        "intent": "Present the delivery-method picker sheet.",
+        "refs": {}
       },
       "assert:address/Valid": {
         "kind": "Assertion",
         "intent": "G16: address form is valid (all required fields well-formed). Derives from the live form view state, not a persisted store.",
-        "refs": {}
-      },
-      "assert:shipping/AddressPresent": {
-        "kind": "Assertion",
-        "intent": "A shipping address must be saved before advancing to payment.",
         "refs": {}
       },
       "assert:pay/CardSelected": {
@@ -360,24 +315,34 @@
         "intent": "No submit is currently in flight (duplicate-submit guard for Place Order).",
         "refs": {}
       },
-      "trig:shipping/EditDeliveryTap": {
+      "assert:shipping/AddressPresent": {
+        "kind": "Assertion",
+        "intent": "A shipping address must be saved before advancing to payment.",
+        "refs": {}
+      },
+      "trig:address/CancelTap": {
         "kind": "Trigger",
-        "intent": "User taps to change the delivery method on the shipping step.",
+        "intent": "User dismisses the address form without saving.",
         "refs": {}
       },
-      "act:shipping/PresentDeliveryMethod": {
-        "kind": "NavAction",
-        "intent": "Present the delivery-method picker sheet.",
-        "refs": {}
-      },
-      "trig:delivery/ConfirmTap": {
+      "trig:address/FieldChange": {
         "kind": "Trigger",
-        "intent": "User taps Confirm on the delivery-method picker.",
+        "intent": "User edits an address form field (name/street/city/zip).",
         "refs": {}
       },
-      "act:delivery/Confirm": {
-        "kind": "NavAction",
-        "intent": "Dismiss the delivery-method picker back to shipping.",
+      "trig:address/SaveTap": {
+        "kind": "Trigger",
+        "intent": "User taps Save & Continue on the address form.",
+        "refs": {}
+      },
+      "trig:card/SaveTap": {
+        "kind": "Trigger",
+        "intent": "User taps Save on the card-entry sheet.",
+        "refs": {}
+      },
+      "trig:cart/CheckoutTap": {
+        "kind": "Trigger",
+        "intent": "User taps Checkout on the bag.",
         "refs": {}
       },
       "trig:cart/PromoTap": {
@@ -385,19 +350,14 @@
         "intent": "User taps to add/apply a promo code on the bag.",
         "refs": {}
       },
-      "act:cart/PresentPromoCode": {
-        "kind": "NavAction",
-        "intent": "Present the promo-code sheet.",
-        "refs": {}
-      },
-      "trig:promo/ApplyTap": {
+      "trig:cart/QtyChange": {
         "kind": "Trigger",
-        "intent": "User taps Apply on the promo-code sheet.",
+        "intent": "User changes a line-item quantity via the stepper.",
         "refs": {}
       },
-      "act:promo/Apply": {
-        "kind": "NavAction",
-        "intent": "Dismiss the promo-code sheet back to the bag.",
+      "trig:delivery/ConfirmTap": {
+        "kind": "Trigger",
+        "intent": "User taps Confirm on the delivery-method picker.",
         "refs": {}
       },
       "trig:order/RetryTap": {
@@ -405,31 +365,62 @@
         "intent": "User taps Retry on the order-failed screen.",
         "refs": {}
       },
-      "act:order/Retry": {
-        "kind": "NavAction",
-        "intent": "Return to the review step to retry placing the order.",
+      "trig:pay/ContinueTap": {
+        "kind": "Trigger",
+        "intent": "User taps Continue on the payment step.",
         "refs": {}
+      },
+      "trig:pay/MethodSelect": {
+        "kind": "Trigger",
+        "intent": "User selects a payment method radio (Card / Apple Pay / PayPal).",
+        "refs": {}
+      },
+      "trig:promo/ApplyTap": {
+        "kind": "Trigger",
+        "intent": "User taps Apply on the promo-code sheet.",
+        "refs": {}
+      },
+      "trig:review/PlaceOrderTap": {
+        "kind": "Trigger",
+        "intent": "User taps Place Order on the review screen.",
+        "refs": {}
+      },
+      "trig:shipping/ContinueTap": {
+        "kind": "Trigger",
+        "intent": "User taps Continue on the shipping step.",
+        "refs": {}
+      },
+      "trig:shipping/EditAddressTap": {
+        "kind": "Trigger",
+        "intent": "User taps to edit/add the shipping address.",
+        "refs": {}
+      },
+      "trig:shipping/EditDeliveryTap": {
+        "kind": "Trigger",
+        "intent": "User taps to change the delivery method on the shipping step.",
+        "refs": {}
+      },
+      "vs:address/Form": {
+        "kind": "ViewState",
+        "intent": "Local address-form field state (name/street/city/zip) before persistence.",
+        "refs": {},
+        "attrs": {
+          "phase": "editing"
+        }
+      },
+      "vs:checkout/Submitting": {
+        "kind": "ViewState",
+        "intent": "In-flight submit flag; disables Place Order to block duplicate submits.",
+        "refs": {},
+        "attrs": {
+          "phase": "live"
+        }
       }
     },
     "substrate": {
-      "store:CartStore": {
-        "kind": "StateStore",
-        "intent": "Cart line items + quantities + computed totals.",
-        "refs": {}
-      },
-      "store:CheckoutStore": {
-        "kind": "StateStore",
-        "intent": "Checkout draft: selected address, payment method, tokenized card, submit flag.",
-        "refs": {}
-      },
-      "store:OrderStore": {
-        "kind": "StateStore",
-        "intent": "Placed orders (order number, confirmation, receipt).",
-        "refs": {}
-      },
-      "op:checkout/PlaceOrder": {
-        "kind": "BackendOp",
-        "intent": "Server place-order call: charges payment, creates the order. Irreversible, non-idempotent without a key.",
+      "fx:analytics/ApplePayResult": {
+        "kind": "SideEffect",
+        "intent": "Analytics event for the Apple Pay sheet outcome (success/cancelled/failed).",
         "refs": {}
       },
       "fx:analytics/CheckoutStarted": {
@@ -442,14 +433,33 @@
         "intent": "Analytics event when an order is successfully placed.",
         "refs": {}
       },
-      "fx:analytics/ApplePayResult": {
-        "kind": "SideEffect",
-        "intent": "Analytics event for the Apple Pay sheet outcome (success/cancelled/failed).",
-        "refs": {}
-      },
       "fx:haptic/OrderSuccess": {
         "kind": "SideEffect",
         "intent": "Success haptic when the order completes.",
+        "refs": {}
+      },
+      "op:checkout/PlaceOrder": {
+        "kind": "BackendOp",
+        "intent": "Server place-order call: charges payment, creates the order. Irreversible, non-idempotent without a key.",
+        "refs": {
+          "source": "app/api/checkout/place-order/route.ts"
+        }
+      },
+      "store:CartStore": {
+        "kind": "StateStore",
+        "intent": "Cart line items + quantities + computed totals.",
+        "refs": {}
+      },
+      "store:CheckoutStore": {
+        "kind": "StateStore",
+        "intent": "Checkout draft: selected address, payment method, tokenized card, submit flag.",
+        "refs": {
+          "source": "lib/stores/checkout-store.ts"
+        }
+      },
+      "store:OrderStore": {
+        "kind": "StateStore",
+        "intent": "Placed orders (order number, confirmation, receipt).",
         "refs": {}
       }
     },
@@ -457,11 +467,11 @@
       "policy:pci/CardData": {
         "kind": "Policy",
         "intent": "PCI-DSS gate on raw card handling: card data is tokenized client-side; the backend op never sees PAN. DEFERRED-status posture gate, not a runtime predicate.",
+        "refs": {},
         "attrs": {
-          "status": "deferred",
-          "gate": "binary"
-        },
-        "refs": {}
+          "gate": "binary",
+          "status": "deferred"
+        }
       }
     },
     "boundary": {
@@ -470,115 +480,13 @@
         "intent": "Apple Pay payment sheet: control leaves the app; returns keyed on the sheet outcome.",
         "refs": {},
         "attrs": {
-          "surfaceKind": "applePaySheet",
-          "outcome": "success"
+          "outcome": "success",
+          "surfaceKind": "applePaySheet"
         }
       }
     }
   },
   "edges": [
-    {
-      "type": "handles",
-      "from": "screen:cart/Bag",
-      "to": "trig:cart/CheckoutTap",
-      "event": "tap"
-    },
-    {
-      "type": "handles",
-      "from": "screen:cart/Bag",
-      "to": "trig:cart/QtyChange",
-      "event": "change"
-    },
-    {
-      "type": "handles",
-      "from": "screen:checkout/Shipping",
-      "to": "trig:shipping/EditAddressTap",
-      "event": "tap"
-    },
-    {
-      "type": "handles",
-      "from": "screen:checkout/Shipping",
-      "to": "trig:shipping/ContinueTap",
-      "event": "tap"
-    },
-    {
-      "type": "handles",
-      "from": "screen:checkout/AddressForm",
-      "to": "trig:address/FieldChange",
-      "event": "change"
-    },
-    {
-      "type": "handles",
-      "from": "screen:checkout/AddressForm",
-      "to": "trig:address/SaveTap",
-      "event": "submit"
-    },
-    {
-      "type": "handles",
-      "from": "screen:checkout/AddressForm",
-      "to": "trig:address/CancelTap",
-      "event": "tap"
-    },
-    {
-      "type": "handles",
-      "from": "screen:checkout/Payment",
-      "to": "trig:pay/MethodSelect",
-      "event": "tap"
-    },
-    {
-      "type": "handles",
-      "from": "screen:checkout/Payment",
-      "to": "trig:pay/ContinueTap",
-      "event": "tap"
-    },
-    {
-      "type": "handles",
-      "from": "screen:checkout/CardEntry",
-      "to": "trig:card/SaveTap",
-      "event": "submit"
-    },
-    {
-      "type": "handles",
-      "from": "screen:checkout/Review",
-      "to": "trig:review/PlaceOrderTap",
-      "event": "tap"
-    },
-    {
-      "type": "renders",
-      "from": "screen:cart/Bag",
-      "to": "comp:cart/LineItemList",
-      "repeat": false
-    },
-    {
-      "type": "renders",
-      "from": "screen:cart/Bag",
-      "to": "comp:cart/OrderSummary",
-      "repeat": false
-    },
-    {
-      "type": "renders",
-      "from": "screen:checkout/Shipping",
-      "to": "comp:checkout/AddressCard",
-      "repeat": false
-    },
-    {
-      "type": "renders",
-      "from": "screen:checkout/Review",
-      "to": "comp:checkout/AddressCard",
-      "repeat": false
-    },
-    {
-      "type": "renders",
-      "from": "screen:checkout/Review",
-      "to": "comp:cart/OrderSummary",
-      "repeat": false
-    },
-    {
-      "type": "renders",
-      "from": "screen:checkout/Review",
-      "to": "comp:checkout/PlaceOrderButton",
-      "repeat": false
-    },
     {
       "type": "binds",
       "from": "comp:cart/LineItemList",
@@ -596,18 +504,13 @@
     },
     {
       "type": "binds",
-      "from": "screen:checkout/AddressForm",
-      "to": "vs:address/Form"
-    },
-    {
-      "type": "binds",
-      "from": "screen:checkout/Payment",
-      "to": "store:CheckoutStore"
-    },
-    {
-      "type": "binds",
       "from": "comp:checkout/PlaceOrderButton",
       "to": "vs:checkout/Submitting"
+    },
+    {
+      "type": "binds",
+      "from": "screen:checkout/AddressForm",
+      "to": "vs:address/Form"
     },
     {
       "type": "binds",
@@ -615,162 +518,14 @@
       "to": "store:OrderStore"
     },
     {
-      "type": "fires",
-      "from": "trig:cart/CheckoutTap",
-      "to": "act:cart/GoToShipping",
-      "seq": 0
-    },
-    {
-      "type": "fires",
-      "from": "trig:cart/CheckoutTap",
-      "to": "act:cart/LogCheckoutStart",
-      "seq": 1
-    },
-    {
-      "type": "fires",
-      "from": "trig:cart/QtyChange",
-      "to": "act:cart/UpdateQty",
-      "seq": 0,
-      "scopedBy": "lineItem.id"
-    },
-    {
-      "type": "fires",
-      "from": "trig:shipping/EditAddressTap",
-      "to": "act:shipping/PresentAddressForm",
-      "seq": 0
-    },
-    {
-      "type": "fires",
-      "from": "trig:shipping/ContinueTap",
-      "to": "act:shipping/Continue",
-      "seq": 0
-    },
-    {
-      "type": "fires",
-      "from": "trig:address/FieldChange",
-      "to": "act:address/UpdateField",
-      "seq": 0,
-      "scopedBy": "field.key"
-    },
-    {
-      "type": "fires",
-      "from": "trig:address/SaveTap",
-      "to": "act:address/SaveAndContinue",
-      "seq": 0
-    },
-    {
-      "type": "fires",
-      "from": "trig:address/CancelTap",
-      "to": "act:address/Cancel",
-      "seq": 0
-    },
-    {
-      "type": "fires",
-      "from": "trig:pay/MethodSelect",
-      "to": "act:pay/SelectMethod",
-      "seq": 0,
-      "scopedBy": "method.id"
-    },
-    {
-      "type": "fires",
-      "from": "trig:pay/ContinueTap",
-      "to": "act:pay/Continue",
-      "seq": 0
-    },
-    {
-      "type": "fires",
-      "from": "trig:pay/ContinueTap",
-      "to": "act:pay/PresentCardEntry",
-      "seq": 1
-    },
-    {
-      "type": "fires",
-      "from": "trig:card/SaveTap",
-      "to": "act:card/SaveCard",
-      "seq": 0
-    },
-    {
-      "type": "fires",
-      "from": "trig:review/PlaceOrderTap",
-      "to": "act:review/PlaceOrder",
-      "seq": 0
-    },
-    {
-      "type": "emits",
-      "from": "act:cart/LogCheckoutStart",
-      "to": "fx:analytics/CheckoutStarted",
-      "effect": "analytics"
-    },
-    {
-      "type": "navigates",
-      "from": "act:cart/GoToShipping",
-      "to": "screen:checkout/Shipping",
-      "present": "push"
-    },
-    {
-      "type": "writes",
-      "from": "act:cart/UpdateQty",
-      "to": "store:CartStore",
-      "mode": "set",
-      "scopedBy": "lineItem.id"
-    },
-    {
-      "type": "navigates",
-      "from": "act:shipping/PresentAddressForm",
-      "to": "screen:checkout/AddressForm",
-      "present": "sheet"
-    },
-    {
-      "type": "navigates",
-      "from": "act:shipping/Continue",
-      "to": "screen:checkout/Payment",
-      "present": "push"
-    },
-    {
-      "type": "guardedBy",
-      "from": "act:shipping/Continue",
-      "to": "assert:shipping/AddressPresent",
-      "polarity": "require"
-    },
-    {
-      "type": "setsViewState",
-      "from": "act:address/UpdateField",
-      "to": "vs:address/Form"
-    },
-    {
-      "type": "writes",
-      "from": "act:address/SaveAndContinue",
-      "to": "store:CheckoutStore",
-      "mode": "set"
-    },
-    {
-      "type": "dismisses",
-      "from": "act:address/SaveAndContinue",
-      "to": "screen:checkout/AddressForm",
-      "target": "self",
-      "writesBack": "CheckoutStore.address"
-    },
-    {
-      "type": "guardedBy",
-      "from": "act:address/SaveAndContinue",
-      "to": "assert:address/Valid",
-      "polarity": "require"
-    },
-    {
-      "type": "dismisses",
-      "from": "act:address/Cancel",
-      "to": "screen:checkout/AddressForm",
-      "target": "self"
+      "type": "binds",
+      "from": "screen:checkout/Payment",
+      "to": "store:CheckoutStore"
     },
     {
       "type": "derivesFrom",
       "from": "assert:address/Valid",
       "to": "vs:address/Form"
-    },
-    {
-      "type": "derivesFrom",
-      "from": "assert:shipping/AddressPresent",
-      "to": "store:CheckoutStore"
     },
     {
       "type": "derivesFrom",
@@ -788,11 +543,323 @@
       "to": "vs:checkout/Submitting"
     },
     {
-      "type": "writes",
-      "from": "act:pay/SelectMethod",
-      "to": "store:CheckoutStore",
-      "mode": "set",
-      "scopedBy": "method.id"
+      "type": "derivesFrom",
+      "from": "assert:shipping/AddressPresent",
+      "to": "store:CheckoutStore"
+    },
+    {
+      "type": "dismisses",
+      "from": "act:address/Cancel",
+      "to": "screen:checkout/AddressForm",
+      "target": "self"
+    },
+    {
+      "type": "dismisses",
+      "from": "act:address/SaveAndContinue",
+      "to": "screen:checkout/AddressForm",
+      "target": "self",
+      "writesBack": "CheckoutStore.address"
+    },
+    {
+      "type": "dismisses",
+      "from": "act:card/SaveCard",
+      "to": "screen:checkout/CardEntry",
+      "target": "self",
+      "writesBack": "CheckoutStore.paymentToken"
+    },
+    {
+      "type": "dismisses",
+      "from": "act:delivery/Confirm",
+      "to": "screen:checkout/DeliveryMethod",
+      "target": "self"
+    },
+    {
+      "type": "dismisses",
+      "from": "act:promo/Apply",
+      "to": "screen:cart/PromoCode",
+      "target": "self"
+    },
+    {
+      "type": "emits",
+      "from": "act:cart/LogCheckoutStart",
+      "to": "fx:analytics/CheckoutStarted",
+      "effect": "analytics"
+    },
+    {
+      "type": "emits",
+      "from": "act:review/PlaceOrder",
+      "to": "fx:analytics/OrderPlaced",
+      "effect": "analytics"
+    },
+    {
+      "type": "emits",
+      "from": "act:review/PlaceOrder",
+      "to": "fx:haptic/OrderSuccess",
+      "effect": "haptic"
+    },
+    {
+      "type": "emits",
+      "from": "x-ext:pay/ApplePaySheet",
+      "to": "fx:analytics/ApplePayResult",
+      "effect": "analytics"
+    },
+    {
+      "type": "fires",
+      "from": "trig:address/CancelTap",
+      "to": "act:address/Cancel",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:address/FieldChange",
+      "to": "act:address/UpdateField",
+      "scopedBy": "field.key",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:address/SaveTap",
+      "to": "act:address/SaveAndContinue",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:card/SaveTap",
+      "to": "act:card/SaveCard",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:cart/CheckoutTap",
+      "to": "act:cart/GoToShipping",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:cart/CheckoutTap",
+      "to": "act:cart/LogCheckoutStart",
+      "seq": 1
+    },
+    {
+      "type": "fires",
+      "from": "trig:cart/PromoTap",
+      "to": "act:cart/PresentPromoCode"
+    },
+    {
+      "type": "fires",
+      "from": "trig:cart/QtyChange",
+      "to": "act:cart/UpdateQty",
+      "scopedBy": "lineItem.id",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:delivery/ConfirmTap",
+      "to": "act:delivery/Confirm"
+    },
+    {
+      "type": "fires",
+      "from": "trig:order/RetryTap",
+      "to": "act:order/Retry"
+    },
+    {
+      "type": "fires",
+      "from": "trig:pay/ContinueTap",
+      "to": "act:pay/Continue",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:pay/ContinueTap",
+      "to": "act:pay/PresentCardEntry",
+      "seq": 1
+    },
+    {
+      "type": "fires",
+      "from": "trig:pay/MethodSelect",
+      "to": "act:pay/SelectMethod",
+      "scopedBy": "method.id",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:promo/ApplyTap",
+      "to": "act:promo/Apply"
+    },
+    {
+      "type": "fires",
+      "from": "trig:review/PlaceOrderTap",
+      "to": "act:review/PlaceOrder",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:shipping/ContinueTap",
+      "to": "act:shipping/Continue",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:shipping/EditAddressTap",
+      "to": "act:shipping/PresentAddressForm",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:shipping/EditDeliveryTap",
+      "to": "act:shipping/PresentDeliveryMethod"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:address/SaveAndContinue",
+      "to": "assert:address/Valid",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:card/SaveCard",
+      "to": "policy:pci/CardData",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:review/PlaceOrder",
+      "to": "assert:review/NotSubmitting",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:shipping/Continue",
+      "to": "assert:shipping/AddressPresent",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "op:checkout/PlaceOrder",
+      "to": "policy:pci/CardData",
+      "polarity": "require"
+    },
+    {
+      "type": "handles",
+      "from": "screen:cart/Bag",
+      "to": "trig:cart/CheckoutTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:cart/Bag",
+      "to": "trig:cart/PromoTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:cart/Bag",
+      "to": "trig:cart/QtyChange",
+      "event": "change"
+    },
+    {
+      "type": "handles",
+      "from": "screen:cart/PromoCode",
+      "to": "trig:promo/ApplyTap",
+      "event": "submit"
+    },
+    {
+      "type": "handles",
+      "from": "screen:checkout/AddressForm",
+      "to": "trig:address/CancelTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:checkout/AddressForm",
+      "to": "trig:address/FieldChange",
+      "event": "change"
+    },
+    {
+      "type": "handles",
+      "from": "screen:checkout/AddressForm",
+      "to": "trig:address/SaveTap",
+      "event": "submit"
+    },
+    {
+      "type": "handles",
+      "from": "screen:checkout/CardEntry",
+      "to": "trig:card/SaveTap",
+      "event": "submit"
+    },
+    {
+      "type": "handles",
+      "from": "screen:checkout/DeliveryMethod",
+      "to": "trig:delivery/ConfirmTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:checkout/OrderFailed",
+      "to": "trig:order/RetryTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:checkout/Payment",
+      "to": "trig:pay/ContinueTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:checkout/Payment",
+      "to": "trig:pay/MethodSelect",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:checkout/Review",
+      "to": "trig:review/PlaceOrderTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:checkout/Shipping",
+      "to": "trig:shipping/ContinueTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:checkout/Shipping",
+      "to": "trig:shipping/EditAddressTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:checkout/Shipping",
+      "to": "trig:shipping/EditDeliveryTap",
+      "event": "tap"
+    },
+    {
+      "type": "invokes",
+      "from": "act:review/PlaceOrder",
+      "to": "op:checkout/PlaceOrder",
+      "awaits": true,
+      "idempotent": false,
+      "irreversible": true
+    },
+    {
+      "type": "navigates",
+      "from": "act:cart/GoToShipping",
+      "to": "screen:checkout/Shipping",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:cart/PresentPromoCode",
+      "to": "screen:cart/PromoCode",
+      "present": "sheet"
+    },
+    {
+      "type": "navigates",
+      "from": "act:order/Retry",
+      "to": "screen:checkout/Review",
+      "present": "push"
     },
     {
       "type": "navigates",
@@ -815,31 +882,113 @@
       "present": "sheet"
     },
     {
+      "type": "navigates",
+      "from": "act:review/PlaceOrder",
+      "to": "screen:checkout/Complete",
+      "present": "replace-root"
+    },
+    {
+      "type": "navigates",
+      "from": "act:review/PlaceOrder",
+      "to": "screen:checkout/OrderFailed",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:shipping/Continue",
+      "to": "screen:checkout/Payment",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:shipping/PresentAddressForm",
+      "to": "screen:checkout/AddressForm",
+      "present": "sheet"
+    },
+    {
+      "type": "navigates",
+      "from": "act:shipping/PresentDeliveryMethod",
+      "to": "screen:checkout/DeliveryMethod",
+      "present": "sheet"
+    },
+    {
+      "type": "produces",
+      "from": "op:checkout/PlaceOrder",
+      "to": "store:OrderStore",
+      "artifact": "order"
+    },
+    {
+      "type": "renders",
+      "from": "screen:cart/Bag",
+      "to": "comp:cart/LineItemList",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:cart/Bag",
+      "to": "comp:cart/OrderSummary",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:checkout/Review",
+      "to": "comp:cart/OrderSummary",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:checkout/Review",
+      "to": "comp:checkout/AddressCard",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:checkout/Review",
+      "to": "comp:checkout/PlaceOrderButton",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:checkout/Shipping",
+      "to": "comp:checkout/AddressCard",
+      "repeat": false
+    },
+    {
+      "type": "setsViewState",
+      "from": "act:address/UpdateField",
+      "to": "vs:address/Form"
+    },
+    {
+      "type": "writes",
+      "from": "act:address/SaveAndContinue",
+      "to": "store:CheckoutStore",
+      "mode": "set"
+    },
+    {
       "type": "writes",
       "from": "act:card/SaveCard",
       "to": "store:CheckoutStore",
       "mode": "set"
     },
     {
-      "type": "dismisses",
-      "from": "act:card/SaveCard",
-      "to": "screen:checkout/CardEntry",
-      "target": "self",
-      "writesBack": "CheckoutStore.paymentToken"
+      "type": "writes",
+      "from": "act:cart/UpdateQty",
+      "to": "store:CartStore",
+      "mode": "set",
+      "scopedBy": "lineItem.id"
     },
     {
-      "type": "guardedBy",
-      "from": "act:card/SaveCard",
-      "to": "policy:pci/CardData",
-      "polarity": "require"
+      "type": "writes",
+      "from": "act:pay/SelectMethod",
+      "to": "store:CheckoutStore",
+      "mode": "set",
+      "scopedBy": "method.id"
     },
     {
-      "type": "x-ext:returnsTo",
-      "from": "x-ext:pay/ApplePaySheet",
-      "to": "screen:checkout/Review",
-      "present": "replace-root",
-      "when": "success",
-      "writesBack": "CheckoutStore.paymentToken"
+      "type": "writes",
+      "from": "act:review/PlaceOrder",
+      "to": "store:CheckoutStore",
+      "mode": "set"
     },
     {
       "type": "x-ext:returnsTo",
@@ -856,151 +1005,12 @@
       "when": "failed"
     },
     {
-      "type": "emits",
+      "type": "x-ext:returnsTo",
       "from": "x-ext:pay/ApplePaySheet",
-      "to": "fx:analytics/ApplePayResult",
-      "effect": "analytics"
-    },
-    {
-      "type": "writes",
-      "from": "act:review/PlaceOrder",
-      "to": "store:CheckoutStore",
-      "mode": "set"
-    },
-    {
-      "type": "invokes",
-      "from": "act:review/PlaceOrder",
-      "to": "op:checkout/PlaceOrder",
-      "awaits": true,
-      "irreversible": true,
-      "idempotent": false
-    },
-    {
-      "type": "emits",
-      "from": "act:review/PlaceOrder",
-      "to": "fx:analytics/OrderPlaced",
-      "effect": "analytics"
-    },
-    {
-      "type": "emits",
-      "from": "act:review/PlaceOrder",
-      "to": "fx:haptic/OrderSuccess",
-      "effect": "haptic"
-    },
-    {
-      "type": "navigates",
-      "from": "act:review/PlaceOrder",
-      "to": "screen:checkout/Complete",
-      "present": "replace-root"
-    },
-    {
-      "type": "guardedBy",
-      "from": "act:review/PlaceOrder",
-      "to": "assert:review/NotSubmitting",
-      "polarity": "require"
-    },
-    {
-      "type": "produces",
-      "from": "op:checkout/PlaceOrder",
-      "to": "store:OrderStore",
-      "artifact": "order"
-    },
-    {
-      "type": "guardedBy",
-      "from": "op:checkout/PlaceOrder",
-      "to": "policy:pci/CardData",
-      "polarity": "require"
-    },
-    {
-      "type": "handles",
-      "from": "screen:checkout/Shipping",
-      "to": "trig:shipping/EditDeliveryTap",
-      "event": "tap"
-    },
-    {
-      "type": "fires",
-      "from": "trig:shipping/EditDeliveryTap",
-      "to": "act:shipping/PresentDeliveryMethod"
-    },
-    {
-      "type": "navigates",
-      "from": "act:shipping/PresentDeliveryMethod",
-      "to": "screen:checkout/DeliveryMethod",
-      "present": "sheet"
-    },
-    {
-      "type": "handles",
-      "from": "screen:checkout/DeliveryMethod",
-      "to": "trig:delivery/ConfirmTap",
-      "event": "tap"
-    },
-    {
-      "type": "fires",
-      "from": "trig:delivery/ConfirmTap",
-      "to": "act:delivery/Confirm"
-    },
-    {
-      "type": "dismisses",
-      "from": "act:delivery/Confirm",
-      "to": "screen:checkout/DeliveryMethod",
-      "target": "self"
-    },
-    {
-      "type": "handles",
-      "from": "screen:cart/Bag",
-      "to": "trig:cart/PromoTap",
-      "event": "tap"
-    },
-    {
-      "type": "fires",
-      "from": "trig:cart/PromoTap",
-      "to": "act:cart/PresentPromoCode"
-    },
-    {
-      "type": "navigates",
-      "from": "act:cart/PresentPromoCode",
-      "to": "screen:cart/PromoCode",
-      "present": "sheet"
-    },
-    {
-      "type": "handles",
-      "from": "screen:cart/PromoCode",
-      "to": "trig:promo/ApplyTap",
-      "event": "submit"
-    },
-    {
-      "type": "fires",
-      "from": "trig:promo/ApplyTap",
-      "to": "act:promo/Apply"
-    },
-    {
-      "type": "dismisses",
-      "from": "act:promo/Apply",
-      "to": "screen:cart/PromoCode",
-      "target": "self"
-    },
-    {
-      "type": "navigates",
-      "from": "act:review/PlaceOrder",
-      "to": "screen:checkout/OrderFailed",
-      "present": "push"
-    },
-    {
-      "type": "handles",
-      "from": "screen:checkout/OrderFailed",
-      "to": "trig:order/RetryTap",
-      "event": "tap"
-    },
-    {
-      "type": "fires",
-      "from": "trig:order/RetryTap",
-      "to": "act:order/Retry"
-    },
-    {
-      "type": "navigates",
-      "from": "act:order/Retry",
       "to": "screen:checkout/Review",
-      "present": "push"
+      "present": "replace-root",
+      "when": "success",
+      "writesBack": "CheckoutStore.paymentToken"
     }
   ]
 }

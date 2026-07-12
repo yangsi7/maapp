@@ -14,10 +14,14 @@ expression: rs
   ],
   "edges": [
     {
-      "type": "guardedBy",
-      "from": "trig:search/Submit",
-      "to": "assert:search/QueryValid",
-      "polarity": "require"
+      "type": "derivesFrom",
+      "from": "assert:nav/RouteReady",
+      "to": "store:RouteStore"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:search/QueryValid",
+      "to": "vs:search/QueryText"
     },
     {
       "type": "guardedBy",
@@ -26,14 +30,10 @@ expression: rs
       "polarity": "require"
     },
     {
-      "type": "derivesFrom",
-      "from": "assert:search/QueryValid",
-      "to": "vs:search/QueryText"
-    },
-    {
-      "type": "derivesFrom",
-      "from": "assert:nav/RouteReady",
-      "to": "store:RouteStore"
+      "type": "guardedBy",
+      "from": "trig:search/Submit",
+      "to": "assert:search/QueryValid",
+      "polarity": "require"
     }
   ]
 }

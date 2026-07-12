@@ -14,7 +14,7 @@ expression: "render_out(&[\"deps\", \"examples/checkout.json\"])"
 | `act:card/SaveCard` | writes | `store:CheckoutStore` | mode=set |
 | `act:cart/UpdateQty` | writes | `store:CartStore` | mode=set, scopedBy=lineItem.id |
 | `act:pay/SelectMethod` | writes | `store:CheckoutStore` | mode=set, scopedBy=method.id |
-| `act:review/PlaceOrder` | invokes | `op:checkout/PlaceOrder` | awaits=True, irreversible=True, idempotent=False |
+| `act:review/PlaceOrder` | invokes | `op:checkout/PlaceOrder` | awaits=True, idempotent=False, irreversible=True |
 | `act:review/PlaceOrder` | writes | `store:CheckoutStore` | mode=set |
 | `assert:address/Valid` | derivesFrom | `vs:address/Form` |  |
 | `assert:pay/CardSelected` | derivesFrom | `store:CheckoutStore` |  |
