@@ -4,7 +4,7 @@ expression: "render_out(&[\"hub\", \"examples/dashboard.json\"])"
 ---
 # App-Spec Graph — BLUEPRINT hub (generated; do NOT hand-edit)
 
-> schema `maapp-graph` v`1.3` · 49 nodes · 70 edges. Regenerate with `graph render hub`.
+> schema `maapp-graph` v`1.4` · 49 nodes · 70 edges. Regenerate with `graph render hub`.
 
 ## surface
 

@@ -9,7 +9,7 @@
     "lints": []
   },
   "schema": "maapp-graph",
-  "version": "1.3",
+  "version": "1.4",
   "nodeKindRegistry": {
     "x-ext:ExternalSurface": {
       "kind": "x-ext:ExternalSurface",

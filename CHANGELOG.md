@@ -45,11 +45,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   every selected node in ONE atomic all-or-nothing write. An unknown slug or an empty `--where`
   match fails the whole batch before any write (exit 2, file untouched); without `--cascade`,
   `remove-node` refuses the batch on the first still-edged node. Single-slug behavior is unchanged.
-- **`migrate` verb** — `maapp migrate <graph> [--to <minor>]` mechanically upgrades a behind-schema
-  graph to the engine's latest known minor (or `--to`), an additive version bump written through the
-  same atomic canonical, no-regression commit as the mutation verbs. A graph already at the target is
-  a no-op (no write); a downgrade, a cross-major migration, an unknown-future target, or a graph with
-  no parseable version is refused (exit 2, file untouched).
+- **`migrate` verb + `W_VERSION_BEHIND` advisory** — `maapp migrate <graph> [--to <minor>]`
+  mechanically upgrades a behind-schema graph to the engine's latest known minor (or `--to`), an
+  additive version bump. The write is a MINIMAL in-place bump that preserves the document's existing
+  order (a version upgrade never wholesale-reorders an authored file; run `fmt` for that), guarded by
+  the mutation verbs' no-regression rule. A graph already at the target is a no-op (no write); a
+  downgrade, a cross-major migration, an unknown-future target, or a graph with no parseable version
+  is refused (exit 2, file untouched). `validate` now emits the previously-silent `W_VERSION_BEHIND`
+  advisory when a graph's minor is behind the engine, pointing at `maapp migrate` — so an adopter
+  graph rotting on an old schema tells on itself. The 6 shipped example graphs were upgraded 1.3 -> 1.4
+  (by running `maapp migrate` on each) so the reference corpus models current practice and validates
+  clean; the hint fires only on genuinely-stale graphs.
 - **Slice-tag export** — `maapp export --slice-tag <tag>` emits a complete, valid sub-graph of every
   node carrying `refs.slice == <tag>` (a walking-skeleton slice id, e.g. `S3`) plus their
   interconnecting edges — the same output contract as `--slice`, stamped `meta.slice_of` with a

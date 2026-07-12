@@ -246,7 +246,7 @@ fn alien_schema_id_yields_error() {
 /// stays clean.
 #[test]
 fn legacy_per_app_schema_id_is_accepted() {
-    let doc = chat_with_header(Some("legacy-graph"), Some("1.3"));
+    let doc = chat_with_header(Some("legacy-graph"), Some("1.4"));
     let g = load_graph_from_slice(&serde_json::to_vec(&doc).unwrap()).expect("load");
     let findings = validate(&g);
     assert!(
@@ -292,6 +292,47 @@ fn unknown_minor_version_warns_only() {
         .collect();
     assert_eq!(warns.len(), 1, "expected exactly one W_VERSION_MINOR");
     assert_eq!(warns[0].severity, "warning");
+}
+
+/// A graph BEHIND the engine's minor (T5): exactly one advisory
+/// `W_VERSION_BEHIND` pointing at `maapp migrate`, no hard findings
+/// (clean:true preserved). The fix line names the upgrade verb.
+#[test]
+fn behind_minor_version_warns_with_migrate_hint() {
+    let doc = chat_with_header(Some("maapp-graph"), Some("1.3"));
+    let g = load_graph_from_slice(&serde_json::to_vec(&doc).unwrap()).expect("load");
+    let findings = validate(&g);
+    assert!(
+        !findings.iter().any(|f| f.hard()),
+        "behind minor must not hard-fail: {:?}",
+        findings.iter().map(|f| &f.code).collect::<Vec<_>>()
+    );
+    let warns: Vec<&maapp::Finding> = findings
+        .iter()
+        .filter(|f| f.code == "W_VERSION_BEHIND")
+        .collect();
+    assert_eq!(warns.len(), 1, "expected exactly one W_VERSION_BEHIND");
+    assert_eq!(warns[0].severity, "warning");
+    assert!(
+        warns[0].fix.contains("maapp migrate"),
+        "the behind-hint fix must point at `maapp migrate`: {:?}",
+        warns[0].fix
+    );
+}
+
+/// A graph AT the engine's current minor emits NO version advisory (neither
+/// the ahead nor the behind arm) — the reference corpus stays clean.
+#[test]
+fn current_minor_version_emits_no_version_advisory() {
+    let doc = chat_with_header(Some("maapp-graph"), Some("1.4"));
+    let g = load_graph_from_slice(&serde_json::to_vec(&doc).unwrap()).expect("load");
+    let codes: Vec<String> = validate(&g).iter().map(|f| f.code.clone()).collect();
+    assert!(
+        !codes
+            .iter()
+            .any(|c| c == "W_VERSION_BEHIND" || c == "W_VERSION_MINOR"),
+        "a current-minor graph must emit no version advisory, got {codes:?}"
+    );
 }
 
 /// An unknown edge type must surface `E_UNKNOWN_TYPE` (a second failure mode).

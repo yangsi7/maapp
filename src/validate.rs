@@ -432,6 +432,21 @@ fn check_schema_header(g: &Graph, f: &mut Vec<Finding>) {
                         .to_string(),
                 ));
             }
+            Some((_, minor)) if minor < KNOWN_MINOR_MAX => {
+                // The previously-silent behind-arm (T5): a graph trailing the
+                // engine rots on an old schema (missing newer-minor features).
+                // Advisory only — points at the `migrate` upgrade verb.
+                f.push(Finding::new(
+                    "W_VERSION_BEHIND",
+                    vec![],
+                    format!(
+                        "version '{v}' is behind this engine's {KNOWN_MAJOR}.{KNOWN_MINOR_MAX}; newer-minor schema features are unavailable until you upgrade."
+                    ),
+                    format!(
+                        "Run `maapp migrate` to mechanically upgrade the graph to {KNOWN_MAJOR}.{KNOWN_MINOR_MAX}."
+                    ),
+                ));
+            }
             Some(_) => {}
         },
     }

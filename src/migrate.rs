@@ -11,9 +11,12 @@
 //! `Trigger.attrs.cause`, and `attrEnumRegistry` namespacing are all new OPT-IN
 //! structures a 1.3 graph simply lacks. So the mechanical minor upgrade is a
 //! `version` bump: an existing document is already a valid target-minor
-//! document once its stamp catches up. The write is atomic + canonical and runs
-//! the same no-regression guard as the mutation verbs (`commit_canonical`), so
-//! a bad graph never gets worse.
+//! document once its stamp catches up. The write is a MINIMAL in-place bump —
+//! it preserves the document's existing key/node/edge order (a version upgrade
+//! must never wholesale-reorder the user's authored file; run `fmt` for that)
+//! — guarded by the same no-regression check as the mutation verbs, so a bad
+//! graph never gets worse. A canonical graph stays canonical (only the version
+//! value changes); a narratively-ordered one keeps its narrative order.
 //!
 //! Only same-major minor upgrades are mechanical/safe: a downgrade, a
 //! cross-major migration, an unknown-future target, or a graph with no
@@ -22,7 +25,8 @@
 //! Native-only (rewrites the graph file on disk), cfg-gated like `mutate`.
 
 use crate::error::EngineError;
-use crate::validate::{KNOWN_MAJOR, KNOWN_MINOR_MAX};
+use crate::graph::Graph;
+use crate::validate::{Finding, KNOWN_MAJOR, KNOWN_MINOR_MAX, validate};
 use serde_json::Value;
 use std::path::Path;
 
@@ -102,14 +106,32 @@ pub fn migrate(path: &Path, to: Option<&str>) -> Result<MigrateOutcome, EngineEr
         });
     }
 
-    // Mechanical additive upgrade: bump `version`, commit in canonical form
-    // through the shared no-regression write.
+    // Mechanical additive upgrade: bump `version` in place (preserving the
+    // document's existing order), guarded by the mutation verbs' no-regression
+    // rule — a write may never RAISE the hard-error count.
     let before = crate::mutate::hard_error_count(&g);
     let mut doc = g.doc;
     doc.as_object_mut()
         .ok_or(EngineError::MalformedDocument("top level is not an object"))?
         .insert("version".to_string(), Value::String(to.clone()));
-    crate::mutate::commit_canonical(path, before, doc)?;
+
+    let check = Graph::from_doc(doc.clone())?;
+    let would_be: Vec<Finding> = validate(&check).into_iter().filter(Finding::hard).collect();
+    if would_be.len() > before {
+        return Err(EngineError::ValidationRegression {
+            before,
+            after: would_be.len(),
+            findings: would_be,
+        });
+    }
+
+    // Minimal in-place write (pretty two-space + one trailing newline, the
+    // file convention) via temp + rename, preserving authored order.
+    let mut bytes = serde_json::to_vec_pretty(&doc)?;
+    bytes.push(b'\n');
+    let tmp = path.with_extension("json.tmp");
+    std::fs::write(&tmp, &bytes)?;
+    std::fs::rename(&tmp, path)?;
 
     Ok(MigrateOutcome {
         from,

@@ -4,7 +4,7 @@ expression: "render_out(&[\"hub\", \"examples/checkout.json\"])"
 ---
 # App-Spec Graph — BLUEPRINT hub (generated; do NOT hand-edit)
 
-> schema `checkout-graph` v`1.3` · 65 nodes · 88 edges. Regenerate with `graph render hub`.
+> schema `checkout-graph` v`1.4` · 65 nodes · 88 edges. Regenerate with `graph render hub`.
 
 ## surface
 

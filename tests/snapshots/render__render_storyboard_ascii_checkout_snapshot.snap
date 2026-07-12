@@ -7,7 +7,7 @@ expression: "render_out(&[\"storyboard\", \"--ascii\", \"examples/checkout.json\
                    (screen-first projection of the app-graph)                   
 ================================================================================
 nav containers (swimlane, not frames): (none)
-schema checkout-graph v1.3  ·  65 nodes / 88 edges
+schema checkout-graph v1.4  ·  65 nodes / 88 edges
 
 JOURNEY LANES (left -> right):  L0 cart  ->  L1 checkout
 
