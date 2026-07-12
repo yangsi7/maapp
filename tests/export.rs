@@ -116,7 +116,7 @@ fn acceptance_step2_neighborhood_slice_nodes_edges_and_validity() {
             "ds:supabase/Orders",
             "op:webhook/HandleChargeRefunded",
             "op:webhook/HandleStripeEvent",
-            "op:webhook/VoidSendcloudParcel",
+            "op:webhook/VoidShipmentParcel",
         ]
     );
     // The 4 neighbors edges + the closure edge between two neighbors
@@ -127,7 +127,7 @@ fn acceptance_step2_neighborhood_slice_nodes_edges_and_validity() {
             (
                 "invokes".to_string(),
                 "op:webhook/HandleChargeRefunded".to_string(),
-                "op:webhook/VoidSendcloudParcel".to_string()
+                "op:webhook/VoidShipmentParcel".to_string()
             ),
             (
                 "invokes".to_string(),
@@ -216,7 +216,7 @@ fn scope_slice_selects_domain_and_drops_out_of_scope_edges() {
             "op:webhook/HandleChargeRefunded",
             "op:webhook/HandleStripeEvent",
             "op:webhook/MarkListingSold",
-            "op:webhook/VoidSendcloudParcel",
+            "op:webhook/VoidShipmentParcel",
         ]
     );
     // Closure: every kept edge has BOTH endpoints inside the scope — no stub
@@ -247,7 +247,7 @@ fn export_carries_provenance_and_adds_slice_of_beside_it() {
     let path = dir.path().join("with-prov.json");
     let mut doc: Value = serde_json::from_slice(&std::fs::read(STEP2).unwrap()).unwrap();
     doc["meta"] = serde_json::json!({
-        "provenance": {"origin": "ingested", "asOf": "e6f1983e"}
+        "provenance": {"origin": "ingested", "asOf": "aaaa0004"}
     });
     std::fs::write(&path, serde_json::to_vec_pretty(&doc).unwrap()).unwrap();
 
@@ -259,7 +259,7 @@ fn export_carries_provenance_and_adds_slice_of_beside_it() {
         "--json",
     ]);
     assert_eq!(slice["meta"]["provenance"]["origin"], "ingested");
-    assert_eq!(slice["meta"]["provenance"]["asOf"], "e6f1983e");
+    assert_eq!(slice["meta"]["provenance"]["asOf"], "aaaa0004");
     assert_eq!(
         slice["meta"]["slice_of"]["selector"],
         "op:webhook/HandleChargeRefunded"
