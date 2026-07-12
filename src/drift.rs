@@ -106,8 +106,15 @@ pub struct DriftReport {
     pub edges: usize,
     /// Sorted by (node, anchor).
     pub stale_candidates: Vec<StaleCandidate>,
-    /// Sorted by file.
+    /// NEW unmapped changes — a changed file no anchor covers, not in the
+    /// active `--baseline` (or all of them when no baseline is given). Sorted
+    /// by file; DRIVES the exit code.
     pub unmapped_changes: Vec<UnmappedChange>,
+    /// Baselined unmapped changes: reported for visibility, NEVER exit-driving
+    /// (the ratchet — T1a). Empty and OMITTED from `--json` when no baseline is
+    /// active, so the pre-baseline byte shape is unchanged. Sorted by file.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tolerated_unmapped: Vec<UnmappedChange>,
     /// Sorted by (node, anchor).
     pub anchor_rot: Vec<AnchorRot>,
     /// Node slugs with no `refs.source` anchor, sorted. ADVISORY: reported,
@@ -155,6 +162,15 @@ impl DriftReport {
         for u in &self.unmapped_changes {
             lines.push(format!("    {}  commits: {}", u.file, shorts(&u.commits)));
         }
+        if !self.tolerated_unmapped.is_empty() {
+            lines.push(format!(
+                "  TOLERATED UNMAPPED [{}, baselined]:",
+                self.tolerated_unmapped.len()
+            ));
+            for u in &self.tolerated_unmapped {
+                lines.push(format!("    {}  commits: {}", u.file, shorts(&u.commits)));
+            }
+        }
         lines.push(format!("  ANCHOR ROT [{}]:", self.anchor_rot.len()));
         for r in &self.anchor_rot {
             lines.push(format!("    {}  ({})", r.node, r.anchor));
@@ -199,10 +215,16 @@ fn shorts(shas: &[String]) -> String {
 /// Read-only on BOTH inputs (§3 must-not: never mutates graph or repo, never
 /// auto-fixes, never suggests re-ingest, no semantic analysis of the changed
 /// code — it flags *where* to look, the agent decides *what* it means).
+///
+/// `graph_path` is the graph file's own path (for the T1a default exclusion:
+/// its own commit never counts as unmapped). `baseline`, when `Some`, ratchets
+/// the unmapped set: listed paths are tolerated (reported, not exit-driving).
 pub fn check_drift(
     g: &Graph,
     repo: &Path,
     since: Option<&str>,
+    graph_path: &Path,
+    baseline: Option<&Baseline>,
 ) -> Result<DriftReport, EngineError> {
     // 1. base = --since rev || meta.provenance.asOf.
     let base_ref = match since {
@@ -261,9 +283,16 @@ pub fn check_drift(
     stale.sort_by(|a, b| (&a.node, &a.anchor).cmp(&(&b.node, &b.anchor)));
     rot.sort_by(|a, b| (&a.node, &a.anchor).cmp(&(&b.node, &b.anchor)));
 
-    // 4. changed files no anchor covers (BTreeSet ⇒ file-sorted).
+    // 4. changed files no anchor covers (BTreeSet ⇒ file-sorted), MINUS the
+    //    T1a default exclusions (the graph file itself + `.maapp/**`), which
+    //    never count as unmapped — this kills the stamp-commit tautology (the
+    //    graph's own rewrite would otherwise self-report as unmapped forever).
+    let graph_rel = repo_relative(repo, graph_path);
     let mut unmapped: Vec<UnmappedChange> = Vec::new();
     for file in &changed {
+        if is_excluded(file, graph_rel.as_deref()) {
+            continue;
+        }
         if !covered.contains(file.as_str()) {
             let commits = commits_touching(repo, &as_of, &head, file, &mut commit_cache)?;
             unmapped.push(UnmappedChange {
@@ -272,6 +301,14 @@ pub fn check_drift(
             });
         }
     }
+    // Ratchet (T1a): with a baseline, a listed unmapped path is TOLERATED
+    // (reported, never exit-driving); everything else is a NEW unmapped change
+    // that fails. Without a baseline, all unmapped are "new" and tolerated is
+    // empty. `partition` preserves the file-sorted order of `unmapped`.
+    let (unmapped_changes, tolerated_unmapped): (Vec<_>, Vec<_>) = match baseline {
+        Some(b) => unmapped.into_iter().partition(|u| !b.contains(&u.file)),
+        None => (unmapped, Vec::new()),
+    };
 
     // Unanchored bucket: every node with zero source anchors (g.nodes is a
     // BTreeMap ⇒ slug-sorted iteration).
@@ -290,10 +327,108 @@ pub fn check_drift(
         nodes: g.nodes.len(),
         edges: g.edges.len(),
         stale_candidates: stale,
-        unmapped_changes: unmapped,
+        unmapped_changes,
+        tolerated_unmapped,
         anchor_rot: rot,
         unanchored_nodes: unanchored,
     })
+}
+
+// ---------------------------------------------------------------------------
+// T1a — default exclusions + baseline/ratchet
+// ---------------------------------------------------------------------------
+
+/// A changed file is excluded from the UNMAPPED computation when it is the
+/// graph file itself or lives under `.maapp/` (the T1a default exclusions).
+/// Exclusions apply ONLY to unmapped — stale/rot are anchor-driven and stay
+/// live, so a node that (unusually) anchors an excluded path is still checked.
+fn is_excluded(file: &str, graph_rel: Option<&str>) -> bool {
+    file == ".maapp" || file.starts_with(".maapp/") || graph_rel == Some(file)
+}
+
+/// The graph file's path relative to the repo root (forward-slash normalized),
+/// or `None` when the graph lives outside the repo (then it can never appear in
+/// the repo's diff, so no exclusion is needed). Canonicalizes both sides, so a
+/// `.maapp/graph.json` symlink to the real graph still matches git's reported
+/// path.
+fn repo_relative(repo: &Path, graph_path: &Path) -> Option<String> {
+    let repo_abs = repo.canonicalize().ok()?;
+    let graph_abs = graph_path.canonicalize().ok()?;
+    let rel = graph_abs.strip_prefix(&repo_abs).ok()?;
+    Some(rel.to_string_lossy().replace('\\', "/"))
+}
+
+/// A `--baseline` snapshot: the set of tolerated unmapped paths (the accepted
+/// debt floor). On-disk form is `{"unmapped": ["<path>", …]}` (sorted on
+/// write). Ratchet semantics: a baselined unmapped path is reported as
+/// `tolerated_unmapped` but never drives the exit code; only a NEW unmapped
+/// path, any stale, or any rot fails.
+#[derive(Debug, Default)]
+pub struct Baseline {
+    /// Tolerated unmapped repo-relative paths.
+    pub unmapped: BTreeSet<String>,
+}
+
+impl Baseline {
+    /// Load a baseline file. A missing file, malformed JSON, or a missing
+    /// `unmapped` array is a hard error (exit 2 at the CLI): a baseline the
+    /// engine cannot read must NEVER silently tolerate nothing (that would fail
+    /// the whole set as "new" — a confusing false alarm).
+    pub fn load(path: &Path) -> Result<Baseline, EngineError> {
+        let bytes = std::fs::read(path).map_err(|e| match e.kind() {
+            std::io::ErrorKind::NotFound => EngineError::FileNotFound(path.to_path_buf()),
+            _ => EngineError::Io(e),
+        })?;
+        let doc: Value =
+            serde_json::from_slice(&bytes).map_err(|source| EngineError::MalformedJson {
+                path: path.to_path_buf(),
+                source,
+            })?;
+        let arr =
+            doc.get("unmapped")
+                .and_then(Value::as_array)
+                .ok_or(EngineError::MalformedDocument(
+                    "baseline: expected an \"unmapped\" array of paths",
+                ))?;
+        // Every element must be a string path; a non-string element is a hard
+        // error, never silently dropped (that would be a partial
+        // tolerate-nothing for the malformed entry — same policy as a
+        // missing/malformed baseline file).
+        let mut unmapped = BTreeSet::new();
+        for v in arr {
+            let Some(s) = v.as_str() else {
+                return Err(EngineError::MalformedDocument(
+                    "baseline: every \"unmapped\" element must be a string path",
+                ));
+            };
+            unmapped.insert(s.to_string());
+        }
+        Ok(Baseline { unmapped })
+    }
+
+    /// Is `file` in the tolerated set?
+    fn contains(&self, file: &str) -> bool {
+        self.unmapped.contains(file)
+    }
+}
+
+/// Write a `--write-baseline` snapshot: the report's current unmapped set (the
+/// residual debt AFTER the default exclusions) as `{"unmapped": [sorted paths]}`
+/// with one trailing newline (byte-stable). Returns the count written. Run the
+/// report with NO baseline first, so the snapshot captures the whole current
+/// unmapped set (not just the un-tolerated remainder).
+pub fn write_baseline(path: &Path, report: &DriftReport) -> Result<usize, EngineError> {
+    let mut paths: Vec<&str> = report
+        .unmapped_changes
+        .iter()
+        .map(|u| u.file.as_str())
+        .collect();
+    paths.sort_unstable();
+    let doc = serde_json::json!({ "unmapped": paths });
+    let mut bytes = serde_json::to_vec(&doc)?;
+    bytes.push(b'\n');
+    std::fs::write(path, &bytes)?;
+    Ok(paths.len())
 }
 
 // ---------------------------------------------------------------------------
@@ -507,5 +642,64 @@ mod tests {
                 ("screen:a/B".to_string(), "y.ts#L1".to_string()),
             ]
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // T1a — default exclusions + baseline
+    // -----------------------------------------------------------------------
+
+    /// A file is excluded from the unmapped set iff it is under `.maapp/` or is
+    /// the graph file itself; ordinary files (even similarly-named) are not.
+    #[test]
+    fn is_excluded_covers_dot_maapp_and_the_graph_file() {
+        // .maapp/** — the standard graph home.
+        assert!(is_excluded(".maapp/graph.json", None));
+        assert!(is_excluded(".maapp/nested/x.json", None));
+        assert!(is_excluded(".maapp", None));
+        // The graph file itself, wherever it lives.
+        assert!(is_excluded("plans/graph.json", Some("plans/graph.json")));
+        // Ordinary files are never excluded — including a `.maapp`-prefixed
+        // name that is NOT the directory (no false positive on `.maapprc`).
+        assert!(!is_excluded("src/home.ts", Some("plans/graph.json")));
+        assert!(!is_excluded(".maapprc", None));
+        assert!(!is_excluded("docs/.maapp-notes.md", None));
+    }
+
+    /// `Baseline::load` reads `{"unmapped": [...]}`; membership is by exact path.
+    #[test]
+    fn baseline_load_parses_unmapped_and_membership() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("b.json");
+        std::fs::write(&path, br#"{"unmapped": ["docs/b.md", "docs/a.md"]}"#).unwrap();
+        let b = Baseline::load(&path).unwrap();
+        assert!(b.contains("docs/a.md"));
+        assert!(b.contains("docs/b.md"));
+        assert!(!b.contains("docs/c.md"));
+    }
+
+    /// A baseline with no `unmapped` array is a hard error (never a silent
+    /// tolerate-nothing).
+    #[test]
+    fn baseline_load_rejects_missing_unmapped_array() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("bad.json");
+        std::fs::write(&path, br#"{"nope": 1}"#).unwrap();
+        assert!(matches!(
+            Baseline::load(&path),
+            Err(EngineError::MalformedDocument(_))
+        ));
+    }
+
+    /// A non-string element inside `unmapped` is a hard error (never silently
+    /// dropped — that would be a partial tolerate-nothing for that entry).
+    #[test]
+    fn baseline_load_rejects_non_string_unmapped_element() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("mixed.json");
+        std::fs::write(&path, br#"{"unmapped": ["docs/a.md", 3]}"#).unwrap();
+        assert!(matches!(
+            Baseline::load(&path),
+            Err(EngineError::MalformedDocument(_))
+        ));
     }
 }

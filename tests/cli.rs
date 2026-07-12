@@ -111,6 +111,170 @@ fn validate_design_incomplete_exits_zero_with_score_and_findings() {
         .stdout(predicate::str::contains("\"clean\":true"));
 }
 
+// ---------------------------------------------------------------------------
+// T7 — default graph resolution ($MAAPP_GRAPH -> .maapp/graph.json -> hint)
+// ---------------------------------------------------------------------------
+//
+// Every graph verb resolves an omitted `<file>` in order: explicit arg (always
+// wins) -> `$MAAPP_GRAPH` (non-empty) -> `.maapp/graph.json` relative to cwd ->
+// exit 2 with a hint naming both. `diff` is the documented exception (two-file
+// verb: both stay explicit).
+
+/// Copy the clean chat probe to `dst` (creating parents), for resolution tests.
+fn seed_graph(dst: &std::path::Path) {
+    if let Some(parent) = dst.parent() {
+        std::fs::create_dir_all(parent).unwrap();
+    }
+    std::fs::copy("examples/chat.json", dst).unwrap();
+}
+
+/// `$MAAPP_GRAPH` resolves the omitted `<file>` for a read verb (validate).
+#[test]
+fn validate_resolves_file_from_maapp_graph_env() {
+    let dir = tempdir();
+    let graph = dir.join("elsewhere.json");
+    seed_graph(&graph);
+    maapp()
+        .env("MAAPP_GRAPH", graph.to_str().unwrap())
+        .arg("validate") // no <file>
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("CLEAN"));
+}
+
+/// With no env override, an omitted `<file>` resolves to `.maapp/graph.json`
+/// relative to the process cwd.
+#[test]
+fn validate_resolves_file_from_maapp_default_path() {
+    let dir = tempdir();
+    seed_graph(&dir.join(".maapp/graph.json"));
+    maapp()
+        .env_remove("MAAPP_GRAPH")
+        .current_dir(&dir)
+        .arg("validate") // no <file>
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("CLEAN"));
+}
+
+/// Neither `$MAAPP_GRAPH` nor `.maapp/graph.json` present -> exit 2 with a hint
+/// naming BOTH resolution sources (never a bare clap "missing arg" error).
+#[test]
+fn omitted_file_with_nothing_to_resolve_is_exit_two_with_hint() {
+    let dir = tempdir(); // empty: no .maapp/graph.json
+    maapp()
+        .env_remove("MAAPP_GRAPH")
+        .current_dir(&dir)
+        .arg("validate")
+        .assert()
+        .code(2)
+        .stderr(
+            predicate::str::contains("MAAPP_GRAPH")
+                .and(predicate::str::contains(".maapp/graph.json")),
+        );
+}
+
+/// An explicit `<file>` always wins over `$MAAPP_GRAPH` (backwards compatible).
+#[test]
+fn explicit_file_arg_overrides_env() {
+    // Env points at a bogus path; the explicit arg is the real clean probe.
+    maapp()
+        .env("MAAPP_GRAPH", "/nonexistent/bogus-graph.json")
+        .args(["validate", "examples/chat.json"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("CLEAN"));
+}
+
+/// An empty `$MAAPP_GRAPH` is treated as unset (falls through to the default /
+/// hint), never as a literal empty path.
+#[test]
+fn empty_env_var_is_treated_as_unset() {
+    let dir = tempdir();
+    maapp()
+        .env("MAAPP_GRAPH", "")
+        .current_dir(&dir)
+        .arg("validate")
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains(".maapp/graph.json"));
+}
+
+/// Resolution applies to the `query` verbs (both the no-id `orphans` form and
+/// the id-bearing `node` form with the file omitted).
+#[test]
+fn query_resolves_file_from_env() {
+    let dir = tempdir();
+    let graph = dir.join("q.json");
+    seed_graph(&graph);
+    // orphans takes no id: the file is the (omitted) positional.
+    maapp()
+        .env("MAAPP_GRAPH", graph.to_str().unwrap())
+        .args(["query", "orphans"])
+        .assert()
+        .success();
+    // node <id>: id given, file omitted -> resolves.
+    maapp()
+        .env("MAAPP_GRAPH", graph.to_str().unwrap())
+        .args(["query", "node", "screen:chat/ConversationList"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("NODE"));
+}
+
+/// Resolution applies to `render` (file omitted).
+#[test]
+fn render_resolves_file_from_env() {
+    let dir = tempdir();
+    let graph = dir.join("r.json");
+    seed_graph(&graph);
+    maapp()
+        .env("MAAPP_GRAPH", graph.to_str().unwrap())
+        .args(["render", "hub"])
+        .assert()
+        .success();
+}
+
+/// Resolution applies to a mutation verb: `add-node` with the file omitted
+/// writes the resolved graph.
+#[test]
+fn mutation_verb_resolves_file_from_env() {
+    let dir = tempdir();
+    let graph = dir.join("m.json");
+    seed_graph(&graph);
+    maapp()
+        .env("MAAPP_GRAPH", graph.to_str().unwrap())
+        .args([
+            "add-node",
+            "store:chat/DraftStore",
+            "--kind",
+            "StateStore",
+            "--intent",
+            "Unsent drafts",
+        ])
+        .assert()
+        .success();
+    let raw = std::fs::read_to_string(&graph).unwrap();
+    assert!(
+        raw.contains("store:chat/DraftStore"),
+        "add-node wrote the resolved graph"
+    );
+}
+
+/// `diff` keeps BOTH files explicit (a two-file verb): omitting them resolves
+/// nothing and stays a usage error (the documented T7 exception).
+#[test]
+fn diff_does_not_resolve_and_requires_explicit_args() {
+    let dir = tempdir();
+    let graph = dir.join("d.json");
+    seed_graph(&graph);
+    maapp()
+        .env("MAAPP_GRAPH", graph.to_str().unwrap())
+        .arg("diff")
+        .assert()
+        .code(2);
+}
+
 /// Minimal per-test temp dir under the OS temp root (no extra deps).
 fn tempdir() -> std::path::PathBuf {
     let mut p = std::env::temp_dir();

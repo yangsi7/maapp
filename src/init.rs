@@ -30,6 +30,11 @@ pub const HOOK_JS: &str = include_str!("../package/claude/hooks/maapp-drift-nudg
 const CLAUDE_MD_PATCH: &str = include_str!("../package/claude/CLAUDE-md-patch.md");
 /// The GitHub Actions PR gate (single source: `package/ci/`).
 pub const CI_GATE_YML: &str = include_str!("../package/ci/maapp-gate.yml");
+
+/// Sentinel present in the CI gate template while its install step is an
+/// unfilled fail-closed TODO. R1 (publish binaries + fill the install step)
+/// removes it, which auto-silences the init-time warning in `run`.
+const CI_GATE_TODO_SENTINEL: &str = "TODO(release)";
 /// The exact `hooks` block to merge into `.claude/settings.json`.
 pub const SETTINGS_SNIPPET: &str = include_str!("../package/claude/settings-snippet.json");
 
@@ -98,6 +103,21 @@ pub fn run(opts: &InitOptions) -> Result<InitOutcome, EngineError> {
         for step in &steps {
             apply(&step.op)?;
         }
+    }
+    // The CI gate ships FAIL-CLOSED and stays RED until you pin release
+    // binaries. Warn LOUDLY (stderr) whenever `--ci` installs the still-TODO
+    // template, so an adopter is never surprised by a guaranteed-red gate. The
+    // warning lives here (not the CLI) so it surfaces regardless of the caller,
+    // and self-silences once that TODO is filled (the sentinel disappears).
+    if opts.ci && CI_GATE_YML.contains(CI_GATE_TODO_SENTINEL) {
+        eprintln!(
+            "warning: {REL_CI} is FAIL-CLOSED and its \"Install maapp\" step is an \
+             unfilled TODO — the gate will be RED on every PR until you pin maapp \
+             release binaries (edit that step). Interim: build from a pinned rev \
+             (`cargo install --git <maapp-repo> --rev <sha> maapp`); permanent: use \
+             the published release URL + sha256 once available. See \
+             docs/INTEGRATIONS.md."
+        );
     }
     Ok(InitOutcome {
         lines: steps.into_iter().map(|s| s.line).collect(),

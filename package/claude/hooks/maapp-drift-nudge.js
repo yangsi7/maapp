@@ -17,6 +17,20 @@
  *   `.maapp/graph.json` at the project root. Set MAAPP_GRAPH via the "env" block
  *   of .claude/settings.json if the graph lives elsewhere.
  *
+ * QUIET-MODE FOR UNANCHORED GRAPHS (T1b)
+ *   A graph with ZERO `refs.source` anchors makes `check-drift`'s "unmapped"
+ *   count grow with every commit past meta.provenance.asOf, so the hook would
+ *   otherwise fire an "N unmapped change(s)" nudge on EVERY Edit/Write — pure
+ *   noise that trains ignoring. When the anchored-node count is 0 the hook
+ *   SUPPRESSES the unmapped-driven nudge and instead emits ONE quiet "graph is
+ *   unanchored — anchor per slice" hint per session. STALE/ROT nudges require
+ *   anchors, so they are structurally impossible here and unaffected. Per-session
+ *   dedupe uses a zero-byte marker file keyed by (session_id, graph path); the
+ *   marker dir is `os.tmpdir()`, overridable via MAAPP_NUDGE_STATE_DIR (tests
+ *   pin it for hermetic runs). If the graph is too large to parse or unparseable,
+ *   the anchored count is UNKNOWN and the hook keeps its legacy drift-only
+ *   behavior (never enters quiet-mode on a graph it cannot read).
+ *
  * FAILURE CONTRACT — SILENT, ALWAYS
  *   A broken hook must never block the consumer's session. This hook exits 0
  *   with NO output when: the maapp binary is not on PATH, the graph file does
@@ -51,6 +65,7 @@
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
@@ -114,6 +129,67 @@ function collectAnchors(graph) {
   return out;
 }
 
+/** Emit the single documented additionalContext object (one line of context).
+ *  The hook writes AT MOST one of these per invocation. */
+function emitContext(msg) {
+  process.stdout.write(
+    JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: 'PostToolUse',
+        additionalContext: msg,
+      },
+    })
+  );
+}
+
+/** Directory for per-session dedupe markers: MAAPP_NUDGE_STATE_DIR if set,
+ *  else the OS temp dir. The override keeps tests hermetic. */
+function nudgeStateDir() {
+  const override = process.env.MAAPP_NUDGE_STATE_DIR;
+  return typeof override === 'string' && override.length > 0 ? override : os.tmpdir();
+}
+
+/** Small stable hex hash (djb2) — keeps markers for different graphs/repos
+ *  apart without pulling in `crypto`. */
+function shortHash(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(16);
+}
+
+/** The "already hinted this session" marker path, keyed by (session, graph). */
+function unanchoredMarker(sessionId, graphAbs) {
+  const sid = typeof sessionId === 'string' && sessionId ? sessionId : 'nosession';
+  return path.join(nudgeStateDir(), `maapp-nudge-unanchored-${sid}-${shortHash(graphAbs)}.seen`);
+}
+
+/**
+ * Quiet-mode hint for an UNANCHORED graph: emit the one-per-session "anchor per
+ * slice" line, replacing the per-edit unmapped nudge. Best-effort dedupe — a
+ * marker read/write failure at worst re-hints, and never throws out (the caller
+ * is inside the silent try/catch regardless).
+ */
+function hintUnanchoredOncePerSession(sessionId, graphAbs, graphDisp, unmapped) {
+  const marker = unanchoredMarker(sessionId, graphAbs);
+  let seen = false;
+  try {
+    seen = fs.existsSync(marker);
+  } catch (_e) {
+    seen = false; // prefer hinting to crashing on a stat error
+  }
+  if (seen) return;
+  emitContext(
+    `maapp: graph has no refs.source anchors — drift detection is inactive ` +
+      `(${unmapped} committed change(s) unmapped by design until you anchor). ` +
+      `Anchor the touched nodes per slice, then \`maapp stamp ${graphDisp} --repo .\`.`
+  );
+  try {
+    fs.writeFileSync(marker, '');
+  } catch (_e) {
+    // dedupe is best-effort; never let a write failure block the session.
+  }
+}
+
 function main() {
   // 1. Hook payload arrives on stdin as one JSON object.
   const input = JSON.parse(fs.readFileSync(0, 'utf8'));
@@ -156,24 +232,30 @@ function main() {
     }
   }
 
-  // 4. (b) Is the just-edited file anchored by any node's refs.source?
+  // 4. Parse the graph ONCE (size-guarded) so we know both the anchored-node
+  //    COUNT (the quiet-mode decision) and the anchors for local stale-matching.
+  //    Oversized/unparseable -> anchors = null (UNKNOWN): the hook keeps its
+  //    legacy drift-only behavior and never enters quiet-mode blind.
+  let anchors = null;
+  if (stat.size <= MAX_GRAPH_BYTES) {
+    try {
+      anchors = collectAnchors(JSON.parse(fs.readFileSync(graphAbs, 'utf8')));
+    } catch (_e) {
+      anchors = null;
+    }
+  }
+  const anchoredCount = anchors ? new Set(anchors.map((a) => a[0])).size : null;
+
+  // 5. (b) Is the just-edited file anchored by any node's refs.source?
   const staleNodes = new Set();
   const rel = path.relative(root, editedAbs).split(path.sep).join('/');
-  if (rel && !rel.startsWith('..') && !path.isAbsolute(rel) && stat.size <= MAX_GRAPH_BYTES) {
-    let graph = null;
-    try {
-      graph = JSON.parse(fs.readFileSync(graphAbs, 'utf8'));
-    } catch (_e) {
-      graph = null; // unparseable graph: fall through with drift-only signal
-    }
-    if (graph) {
-      for (const [slug, p] of collectAnchors(graph)) {
-        if (p === rel) staleNodes.add(slug);
-      }
+  if (anchors && rel && !rel.startsWith('..') && !path.isAbsolute(rel)) {
+    for (const [slug, p] of anchors) {
+      if (p === rel) staleNodes.add(slug);
     }
   }
 
-  // 5. Merge the two signals; stay silent when there is nothing to say.
+  // 6. Merge the two signals.
   let unmapped = 0;
   let rot = 0;
   if (report) {
@@ -183,9 +265,23 @@ function main() {
     unmapped = (report.unmapped_changes || []).length;
     rot = (report.anchor_rot || []).length;
   }
-  if (staleNodes.size === 0 && unmapped === 0 && rot === 0) return;
 
   const graphDisp = path.relative(root, graphAbs).split(path.sep).join('/') || graphAbs;
+
+  // 6a. QUIET-MODE (T1b): an UNANCHORED graph makes `unmapped` fire on every
+  //     edit. With 0 anchors, stale/rot are structurally impossible, so
+  //     `unmapped` is the only live signal — suppress its per-edit nudge and
+  //     emit ONE per-session "anchor per slice" hint instead.
+  if (anchoredCount === 0) {
+    if (unmapped > 0) {
+      hintUnanchoredOncePerSession(input.session_id, graphAbs, graphDisp, unmapped);
+    }
+    return; // never emit the verbose unmapped nudge for an unanchored graph
+  }
+
+  // 7. Anchored (or unknown) graph: stay silent when there is nothing to say.
+  if (staleNodes.size === 0 && unmapped === 0 && rot === 0) return;
+
   const sample = [...staleNodes].sort().slice(0, 3).join(', ');
   const bits = [];
   if (staleNodes.size > 0) {
@@ -198,15 +294,8 @@ function main() {
     `maapp: ${bits.join('; ')} — run \`maapp check-drift ${graphDisp} --repo .\` / ` +
     `update the touched nodes, then \`maapp validate ${graphDisp}\`.`;
 
-  // 6. The documented PostToolUse additionalContext shape (exit 0 + stdout JSON).
-  process.stdout.write(
-    JSON.stringify({
-      hookSpecificOutput: {
-        hookEventName: 'PostToolUse',
-        additionalContext: msg,
-      },
-    })
-  );
+  // 8. The documented PostToolUse additionalContext shape (exit 0 + stdout JSON).
+  emitContext(msg);
 }
 
 try {

@@ -5,6 +5,36 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`check-drift` baseline ratchet + default exclusions** — the graph file itself and
+  everything under `.maapp/` are now excluded from the "unmapped changes" computation, so
+  `stamp` rewriting and committing the graph no longer self-reports as unmapped forever. A new
+  `--baseline <file>` tolerates a snapshot of accepted unmapped paths (surfaced in a separate
+  `tolerated_unmapped` bucket, never exit-driving), so only a NEW unmapped path, any stale, or
+  any rot fails the check. A new `--write-baseline <file>` snapshots the current unmapped set as
+  `{"unmapped": [sorted paths]}` (byte-stable) and exits 0 to establish the ratchet floor.
+  `--baseline` and `--write-baseline` are mutually exclusive, and a malformed or missing baseline
+  is a hard error (exit 2), never a silent tolerate-nothing. The `--json` report gains
+  `tolerated_unmapped`, omitted when empty so the pre-baseline byte shape is unchanged.
+- **Default graph resolution across every verb** — an omitted `<file>` now resolves in order:
+  explicit argument (always wins) → `$MAAPP_GRAPH` (when set and non-empty) → `.maapp/graph.json`
+  (relative to the current directory, when it exists) → exit 2 with a hint naming both sources.
+  Applies to `validate`, `check-drift`, `stamp`, `export`, `query`, `render`, and the CRUD verbs;
+  `diff` keeps both files explicit. Backwards compatible — an explicit path behaves exactly as
+  before. The environment is read only at the binary boundary; the core library never touches it.
+- **Quiet-mode drift-nudge hook for unanchored graphs** — with zero `refs.source` anchors the
+  Claude Code drift-nudge hook now suppresses the per-edit "N unmapped change(s)" nudge (pure
+  noise on a not-yet-anchored graph) and instead emits one per-session "anchor per slice" hint,
+  deduped via a marker under `MAAPP_NUDGE_STATE_DIR` (default the OS temp dir). Stale/rot nudges
+  on anchored graphs are unchanged.
+- **Binary-aware `init --ci`** — `maapp init --ci` now prints a loud stderr warning that the
+  installed `maapp-gate.yml` is fail-closed and its "Install maapp" step is an unfilled TODO, so
+  the gate stays red on every PR until you pin release binaries. The warning self-silences once
+  that step is filled.
+
 ## [0.1.0] - 2026-07-11
 
 Initial public release. maapp turns an app's screens, flows, state, navigation, and
