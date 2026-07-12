@@ -238,6 +238,8 @@ ships with a `.sha256` and a unified `sha256.sum`.
   sample size, reproduce command and limitations per result
 - [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md): wiring maapp into Claude Code, Cursor,
   Codex / AGENTS.md agents, and any other harness
+- [docs/ADOPTION.md](docs/ADOPTION.md): cutting over from bespoke graph tooling, cold-starting
+  a graph on an existing app, and the drift-baseline ratchet
 - [CONTRIBUTING.md](CONTRIBUTING.md): dev setup and the 5-command verification gate
   (fmt, clippy -D warnings, nextest + doc tests, cargo deny, wasm32 build)
 - [examples/](examples/): 8 example app graphs (chat, checkout, dashboard, maps, media,
