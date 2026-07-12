@@ -1,6 +1,6 @@
 {
   "diff_of": ["graph.step3.json", "graph.step4.json"],
-  "source_commit": "e6f1983e feat(checkout): buyer preferred delivery address (#1071)",
+  "source_commit": "aaaa0004 feat(checkout): buyer preferred delivery address",
   "nodes_added": [
     "act:checkout/PrefillSavedAddress",
     "ds:supabase/BuyerAddresses",

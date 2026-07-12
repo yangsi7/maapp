@@ -209,7 +209,7 @@
       },
       "act:orders/CreateLabel": {
         "kind": "MutationAction",
-        "intent": "POST /api/shipping/label/[orderId]; creates Sendcloud v3 shipment, writes label URL and tracking, transitions order to shipped.",
+        "intent": "POST /api/shipping/label/[orderId]; creates shipment, writes label URL and tracking, transitions order to shipped.",
         "refs": {}
       },
       "act:orders/RequestCancel": {
@@ -354,9 +354,9 @@
         "intent": "Stripe webhook signing secret (STRIPE_WEBHOOK_SECRET env var); used for request signature verification.",
         "refs": {}
       },
-      "ds:sendcloud/ShippingAPI": {
+      "ds:shipping/ShippingAPI": {
         "kind": "DataSource",
-        "intent": "Sendcloud v3 shipping API; live DHL rate quotes and shipment creation.",
+        "intent": "Shipping-provider API; live DHL rate quotes and shipment creation.",
         "refs": {}
       },
       "op:checkout/LoadListing": {
@@ -371,7 +371,7 @@
       },
       "op:checkout/FetchShippingOptions": {
         "kind": "BackendOp",
-        "intent": "POST /api/shipping/quote; calls Sendcloud fetchShippingOptions() for DE destination; returns cheapest DHL option or null with reason.",
+        "intent": "POST /api/shipping/quote; calls the shipping API rate quote for DE destination; returns cheapest DHL option or null with reason.",
         "refs": {}
       },
       "op:checkout/ReserveListing": {
@@ -406,7 +406,7 @@
       },
       "op:orders/CreateShippingLabel": {
         "kind": "BackendOp",
-        "intent": "POST /api/shipping/label/[orderId]; creates Sendcloud v3 shipment; writes label URL, tracking number, carrier; transitions order → 'shipped'; sets auto_release_at +14d.",
+        "intent": "POST /api/shipping/label/[orderId]; creates shipment; writes label URL, tracking number, carrier; transitions order → 'shipped'; sets auto_release_at +14d.",
         "refs": {}
       },
       "op:orders/RequestCancelOp": {
@@ -436,12 +436,12 @@
       },
       "op:webhook/HandleChargeRefunded": {
         "kind": "BackendOp",
-        "intent": "charge.refunded settle point (incl. out-of-band Stripe Dashboard refunds); marks all orders for the payment intent refunded with proportional multi-order allocation; voids any minted Sendcloud parcel.",
+        "intent": "charge.refunded settle point (incl. out-of-band Stripe Dashboard refunds); marks all orders for the payment intent refunded with proportional multi-order allocation; voids any minted the shipping API parcel.",
         "refs": {}
       },
-      "op:webhook/VoidSendcloudParcel": {
+      "op:webhook/VoidShipmentParcel": {
         "kind": "BackendOp",
-        "intent": "Cancel the Sendcloud parcel of a refunded labelled order so the platform is not billed for a shipment that never goes out; idempotent + best-effort (no-op when unlabelled; failures never block the refund).",
+        "intent": "Cancel the the shipping API parcel of a refunded labelled order so the platform is not billed for a shipment that never goes out; idempotent + best-effort (no-op when unlabelled; failures never block the refund).",
         "refs": {}
       },
       "fx:checkout/PurchaseTracked": {
@@ -545,7 +545,7 @@
     { "type": "reads", "from": "act:checkout/LoadOrder", "to": "ds:supabase/Orders", "cachePolicy": "fresh" },
     { "type": "reads", "from": "op:checkout/FetchSavedAddress", "to": "ds:supabase/BuyerAddresses", "cachePolicy": "fresh" },
     { "type": "reads", "from": "op:checkout/LoadListing", "to": "ds:supabase/Listings", "cachePolicy": "fresh" },
-    { "type": "reads", "from": "op:checkout/FetchShippingOptions", "to": "ds:sendcloud/ShippingAPI", "cachePolicy": "fresh" },
+    { "type": "reads", "from": "op:checkout/FetchShippingOptions", "to": "ds:shipping/ShippingAPI", "cachePolicy": "fresh" },
     { "type": "reads", "from": "op:orders/FetchOrders", "to": "ds:supabase/Orders", "cachePolicy": "fresh" },
     { "type": "reads", "from": "op:orders/FetchOrderDetail", "to": "ds:supabase/Orders", "cachePolicy": "fresh" },
     { "type": "reads", "from": "op:webhook/HandleChargeRefunded", "to": "ds:supabase/Orders", "cachePolicy": "fresh" },
@@ -557,7 +557,7 @@
     { "type": "writes", "from": "op:checkout/CreateFreeOrder", "to": "ds:supabase/Listings", "mode": "set" },
     { "type": "writes", "from": "op:webhook/CreateOrder", "to": "ds:supabase/Orders", "mode": "append", "idempotent": true },
     { "type": "writes", "from": "op:webhook/HandleChargeRefunded", "to": "ds:supabase/Orders", "mode": "set", "idempotent": true },
-    { "type": "writes", "from": "op:webhook/VoidSendcloudParcel", "to": "ds:sendcloud/ShippingAPI", "mode": "delete", "idempotent": true },
+    { "type": "writes", "from": "op:webhook/VoidShipmentParcel", "to": "ds:shipping/ShippingAPI", "mode": "delete", "idempotent": true },
     { "type": "writes", "from": "op:webhook/CreateOrder", "to": "ds:supabase/Transactions", "mode": "append" },
     { "type": "writes", "from": "op:webhook/MarkListingSold", "to": "ds:supabase/Listings", "mode": "set" },
     { "type": "writes", "from": "op:webhook/CreateConversation", "to": "ds:supabase/Conversations", "mode": "append" },
@@ -576,7 +576,7 @@
     { "type": "invokes", "from": "act:orders/ConfirmReceipt", "to": "op:orders/ConfirmReceiptOp", "awaits": true },
     { "type": "invokes", "from": "act:orders/CreateLabel", "to": "op:orders/CreateShippingLabel", "awaits": true },
     { "type": "invokes", "from": "act:orders/RequestCancel", "to": "op:orders/RequestCancelOp", "awaits": true },
-    { "type": "invokes", "from": "op:webhook/HandleChargeRefunded", "to": "op:webhook/VoidSendcloudParcel", "awaits": true, "idempotent": true },
+    { "type": "invokes", "from": "op:webhook/HandleChargeRefunded", "to": "op:webhook/VoidShipmentParcel", "awaits": true, "idempotent": true },
     { "type": "invokes", "from": "op:webhook/HandleStripeEvent", "to": "op:webhook/CreateOrder", "awaits": true, "idempotent": true },
     { "type": "invokes", "from": "op:webhook/HandleStripeEvent", "to": "op:webhook/HandleChargeRefunded", "awaits": true, "idempotent": true },
     { "type": "invokes", "from": "op:webhook/HandleStripeEvent", "to": "op:webhook/MarkListingSold", "awaits": true },

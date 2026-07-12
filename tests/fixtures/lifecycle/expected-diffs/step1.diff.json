@@ -1,6 +1,6 @@
 {
   "diff_of": ["graph.step0.json", "graph.step1.json"],
-  "source_commit": "dae50018 fix(971): escrow follow-ups — persist charge id, bound cron batch, reversal idempotency (#985)",
+  "source_commit": "aaaa0001 fix: escrow follow-ups — persist charge id, bound cron batch, reversal idempotency",
   "nodes_added": [],
   "nodes_removed": [],
   "nodes_changed": {

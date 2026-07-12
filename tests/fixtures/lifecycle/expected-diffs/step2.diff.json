@@ -1,9 +1,9 @@
 {
   "diff_of": ["graph.step1.json", "graph.step2.json"],
-  "source_commit": "ff2950f6 fix(894): void SendCloud parcel on charge.refunded webhook — last code blocker (#994)",
+  "source_commit": "aaaa0002 fix: void shipment parcel on charge.refunded webhook",
   "nodes_added": [
     "op:webhook/HandleChargeRefunded",
-    "op:webhook/VoidSendcloudParcel"
+    "op:webhook/VoidShipmentParcel"
   ],
   "nodes_removed": [],
   "nodes_changed": {
@@ -17,8 +17,8 @@
   "edges_added": [
     { "type": "reads", "from": "op:webhook/HandleChargeRefunded", "to": "ds:supabase/Orders", "cachePolicy": "fresh" },
     { "type": "writes", "from": "op:webhook/HandleChargeRefunded", "to": "ds:supabase/Orders", "mode": "set", "idempotent": true },
-    { "type": "writes", "from": "op:webhook/VoidSendcloudParcel", "to": "ds:sendcloud/ShippingAPI", "mode": "delete", "idempotent": true },
-    { "type": "invokes", "from": "op:webhook/HandleChargeRefunded", "to": "op:webhook/VoidSendcloudParcel", "awaits": true, "idempotent": true },
+    { "type": "writes", "from": "op:webhook/VoidShipmentParcel", "to": "ds:shipping/ShippingAPI", "mode": "delete", "idempotent": true },
+    { "type": "invokes", "from": "op:webhook/HandleChargeRefunded", "to": "op:webhook/VoidShipmentParcel", "awaits": true, "idempotent": true },
     { "type": "invokes", "from": "op:webhook/HandleStripeEvent", "to": "op:webhook/HandleChargeRefunded", "awaits": true, "idempotent": true }
   ],
   "edges_removed": [],
