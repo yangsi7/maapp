@@ -40,8 +40,9 @@ expression: rs
   "edges": [
     {
       "type": "binds",
-      "from": "screen:analytics/Overview",
-      "to": "store:FilterStore"
+      "from": "comp:analytics/BreakdownList",
+      "to": "store:DetailSeriesStore",
+      "scopedBy": "MetricDetail.metricId"
     },
     {
       "type": "binds",
@@ -67,13 +68,17 @@ expression: rs
     },
     {
       "type": "binds",
-      "from": "comp:analytics/BreakdownList",
-      "to": "store:DetailSeriesStore",
-      "scopedBy": "MetricDetail.metricId"
+      "from": "screen:analytics/MetricDetail",
+      "to": "vs:detail/Load"
     },
     {
       "type": "binds",
-      "from": "screen:analytics/MetricDetail",
+      "from": "screen:analytics/Overview",
+      "to": "store:FilterStore"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:detail/SeriesLoaded",
       "to": "vs:detail/Load"
     },
     {
@@ -82,10 +87,31 @@ expression: rs
       "to": "vs:filter/Draft"
     },
     {
-      "type": "writes",
-      "from": "act:filter/ApplyAndClose",
-      "to": "store:FilterStore",
-      "mode": "set"
+      "type": "derivesFrom",
+      "from": "assert:filter/RawDataAvailable",
+      "to": "store:RawTxnStore"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:overview/CardSeriesReady",
+      "to": "store:ChartSeriesStore"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:overview/FilterApplied",
+      "to": "store:FilterStore"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:overview/RefreshNotInFlight",
+      "to": "vs:overview/ChartLoad"
+    },
+    {
+      "type": "invokes",
+      "from": "act:detail/Export",
+      "to": "op:ExportReport",
+      "awaits": true,
+      "idempotent": true
     },
     {
       "type": "invokes",
@@ -93,6 +119,36 @@ expression: rs
       "to": "stage:agg/Normalize",
       "awaits": true,
       "idempotent": true
+    },
+    {
+      "type": "produces",
+      "from": "op:ExportReport",
+      "to": "store:DetailSeriesStore",
+      "artifact": "exportFile"
+    },
+    {
+      "type": "produces",
+      "from": "op:SyncLedger",
+      "to": "store:RawTxnStore",
+      "artifact": "rawTransactions"
+    },
+    {
+      "type": "produces",
+      "from": "stage:agg/Aggregate",
+      "to": "store:AggregateStore",
+      "artifact": "periodAggregates"
+    },
+    {
+      "type": "produces",
+      "from": "stage:agg/Series",
+      "to": "store:ChartSeriesStore",
+      "artifact": "chartSeries"
+    },
+    {
+      "type": "reads",
+      "from": "act:detail/LoadDetail",
+      "to": "store:DetailSeriesStore",
+      "cachePolicy": "cached"
     },
     {
       "type": "reads",
@@ -108,44 +164,15 @@ expression: rs
     },
     {
       "type": "reads",
-      "from": "act:detail/LoadDetail",
-      "to": "store:DetailSeriesStore",
-      "cachePolicy": "cached"
-    },
-    {
-      "type": "invokes",
-      "from": "act:detail/Export",
-      "to": "op:ExportReport",
-      "awaits": true,
-      "idempotent": true
-    },
-    {
-      "type": "reads",
       "from": "op:SyncLedger",
       "to": "src:LedgerAPI",
       "cachePolicy": "fresh"
     },
     {
-      "type": "produces",
-      "from": "op:SyncLedger",
-      "to": "store:RawTxnStore",
-      "artifact": "rawTransactions"
-    },
-    {
-      "type": "produces",
-      "from": "op:ExportReport",
-      "to": "store:DetailSeriesStore",
-      "artifact": "exportFile"
-    },
-    {
-      "type": "x-pipeline:consumes",
-      "from": "store:RawTxnStore",
-      "to": "stage:agg/Normalize"
-    },
-    {
-      "type": "x-pipeline:consumes",
-      "from": "store:FilterStore",
-      "to": "stage:agg/Normalize"
+      "type": "writes",
+      "from": "act:filter/ApplyAndClose",
+      "to": "store:FilterStore",
+      "mode": "set"
     },
     {
       "type": "x-pipeline:consumes",
@@ -153,10 +180,14 @@ expression: rs
       "to": "stage:agg/Aggregate"
     },
     {
-      "type": "x-pipeline:feeds",
-      "from": "stage:agg/Normalize",
-      "to": "stage:agg/Aggregate",
-      "transport": "inline"
+      "type": "x-pipeline:consumes",
+      "from": "store:FilterStore",
+      "to": "stage:agg/Normalize"
+    },
+    {
+      "type": "x-pipeline:consumes",
+      "from": "store:RawTxnStore",
+      "to": "stage:agg/Normalize"
     },
     {
       "type": "x-pipeline:feeds",
@@ -165,41 +196,10 @@ expression: rs
       "transport": "inline"
     },
     {
-      "type": "produces",
-      "from": "stage:agg/Aggregate",
-      "to": "store:AggregateStore",
-      "artifact": "periodAggregates"
-    },
-    {
-      "type": "produces",
-      "from": "stage:agg/Series",
-      "to": "store:ChartSeriesStore",
-      "artifact": "chartSeries"
-    },
-    {
-      "type": "derivesFrom",
-      "from": "assert:overview/FilterApplied",
-      "to": "store:FilterStore"
-    },
-    {
-      "type": "derivesFrom",
-      "from": "assert:overview/RefreshNotInFlight",
-      "to": "vs:overview/ChartLoad"
-    },
-    {
-      "type": "derivesFrom",
-      "from": "assert:overview/CardSeriesReady",
-      "to": "store:ChartSeriesStore"
-    },
-    {
-      "type": "derivesFrom",
-      "from": "assert:filter/RawDataAvailable",
-      "to": "store:RawTxnStore"
-    },
-    {
-      "type": "derivesFrom",
-      "from": "assert:detail/SeriesLoaded",
-      "to": "vs:detail/Load"
+      "type": "x-pipeline:feeds",
+      "from": "stage:agg/Normalize",
+      "to": "stage:agg/Aggregate",
+      "transport": "inline"
     }
   ]
 }

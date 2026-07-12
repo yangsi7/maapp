@@ -4,7 +4,7 @@
     "version": "1.4",
     "app": "Revolut Business — Analytics dashboard (filter / drill-down / export)",
     "mobbin_flow_id": "f546addd-d31d-44aa-81fa-4a2328ed4387",
-    "vocab": "spec/EDGE-VOCABULARY.md",
+    "vocab": "docs/EDGE-VOCABULARY.md",
     "note": "meta.lints intentionally OMITS 'slice-coverage' so W_NO_SLICE stays OFF (G17).",
     "lints": []
   },
@@ -159,9 +159,24 @@
   },
   "nodes": {
     "surface": {
-      "screen:analytics/Overview": {
-        "kind": "Screen",
-        "intent": "Analytics overview: scroll of metric cards (net cashflow, income, spending, merchant revenue), each with a sparkline/bar chart for the active period.",
+      "comp:analytics/BreakdownList": {
+        "kind": "Component",
+        "intent": "Per-category breakdown rows on the metric-detail screen.",
+        "refs": {}
+      },
+      "comp:analytics/ChartView": {
+        "kind": "Component",
+        "intent": "Reusable chart renderer (line/bar) bound to a chart-series store; shows loading/empty/error states.",
+        "refs": {}
+      },
+      "comp:analytics/MetricCard": {
+        "kind": "Component",
+        "intent": "One metric card: title, headline value, delta %, inline chart for the active filter range.",
+        "refs": {}
+      },
+      "comp:analytics/PeriodSegment": {
+        "kind": "Component",
+        "intent": "Weekly/Monthly/Yearly segmented control inside the filter sheet, bound to the draft filter view-state.",
         "refs": {}
       },
       "screen:analytics/FilterPeriod": {
@@ -174,96 +189,21 @@
         "intent": "Drill-down detail for one metric: full-height chart, breakdown rows, export button.",
         "refs": {}
       },
-      "comp:analytics/MetricCard": {
-        "kind": "Component",
-        "intent": "One metric card: title, headline value, delta %, inline chart for the active filter range.",
-        "refs": {}
-      },
-      "comp:analytics/ChartView": {
-        "kind": "Component",
-        "intent": "Reusable chart renderer (line/bar) bound to a chart-series store; shows loading/empty/error states.",
-        "refs": {}
-      },
-      "comp:analytics/PeriodSegment": {
-        "kind": "Component",
-        "intent": "Weekly/Monthly/Yearly segmented control inside the filter sheet, bound to the draft filter view-state.",
-        "refs": {}
-      },
-      "comp:analytics/BreakdownList": {
-        "kind": "Component",
-        "intent": "Per-category breakdown rows on the metric-detail screen.",
+      "screen:analytics/Overview": {
+        "kind": "Screen",
+        "intent": "Analytics overview: scroll of metric cards (net cashflow, income, spending, merchant revenue), each with a sparkline/bar chart for the active period.",
         "refs": {}
       }
     },
     "logic": {
-      "trig:overview/Appear": {
-        "kind": "Trigger",
-        "intent": "Overview screen appears (initial load + return).",
+      "act:detail/Export": {
+        "kind": "MutationAction",
+        "intent": "Invoke the export backend op to render a CSV/PDF, then hand the file to the OS share sheet.",
         "refs": {}
       },
-      "trig:overview/PullToRefresh": {
-        "kind": "Trigger",
-        "intent": "User pulls to refresh the overview.",
-        "refs": {}
-      },
-      "trig:overview/FilterTap": {
-        "kind": "Trigger",
-        "intent": "User taps the filter/period chip in the header.",
-        "refs": {}
-      },
-      "trig:overview/CardTap": {
-        "kind": "Trigger",
-        "intent": "User taps a metric card to drill in.",
-        "refs": {}
-      },
-      "trig:filter/SegmentChange": {
-        "kind": "Trigger",
-        "intent": "User changes weekly/monthly/yearly or the picker value in the filter sheet.",
-        "refs": {}
-      },
-      "trig:filter/ApplyTap": {
-        "kind": "Trigger",
-        "intent": "User taps 'Done/Apply' in the filter sheet.",
-        "refs": {}
-      },
-      "trig:filter/CancelTap": {
-        "kind": "Trigger",
-        "intent": "User taps the X to dismiss the filter sheet without applying.",
-        "refs": {}
-      },
-      "trig:detail/Appear": {
-        "kind": "Trigger",
-        "intent": "Metric-detail screen appears.",
-        "refs": {}
-      },
-      "trig:detail/ExportTap": {
-        "kind": "Trigger",
-        "intent": "User taps the export/download button on the detail screen.",
-        "refs": {}
-      },
-      "act:overview/LoadCharts": {
+      "act:detail/LoadDetail": {
         "kind": "QueryAction",
-        "intent": "Read the aggregated chart-series for the active filter range (cached-first on appear).",
-        "refs": {}
-      },
-      "act:overview/RefreshCharts": {
-        "kind": "QueryAction",
-        "intent": "Force-fresh re-read of chart-series on pull-to-refresh.",
-        "refs": {}
-      },
-      "act:overview/PresentFilter": {
-        "kind": "NavAction",
-        "intent": "Present the filter-by-period sheet.",
-        "refs": {}
-      },
-      "act:overview/GoToDetail": {
-        "kind": "NavAction",
-        "intent": "Push the metric-detail drill-down for the tapped card.",
-        "refs": {}
-      },
-      "act:filter/UpdateDraft": {
-        "kind": "ViewStateAction",
-        "intent": "Write the chosen period/granularity into the draft filter view-state as the user picks.",
+        "intent": "Read the detailed breakdown series for the selected metric + active range.",
         "refs": {}
       },
       "act:filter/ApplyAndClose": {
@@ -276,15 +216,113 @@
         "intent": "Dismiss the filter sheet, discarding the draft.",
         "refs": {}
       },
-      "act:detail/LoadDetail": {
-        "kind": "QueryAction",
-        "intent": "Read the detailed breakdown series for the selected metric + active range.",
+      "act:filter/UpdateDraft": {
+        "kind": "ViewStateAction",
+        "intent": "Write the chosen period/granularity into the draft filter view-state as the user picks.",
         "refs": {}
       },
-      "act:detail/Export": {
-        "kind": "MutationAction",
-        "intent": "Invoke the export backend op to render a CSV/PDF, then hand the file to the OS share sheet.",
+      "act:overview/GoToDetail": {
+        "kind": "NavAction",
+        "intent": "Push the metric-detail drill-down for the tapped card.",
         "refs": {}
+      },
+      "act:overview/LoadCharts": {
+        "kind": "QueryAction",
+        "intent": "Read the aggregated chart-series for the active filter range (cached-first on appear).",
+        "refs": {}
+      },
+      "act:overview/PresentFilter": {
+        "kind": "NavAction",
+        "intent": "Present the filter-by-period sheet.",
+        "refs": {}
+      },
+      "act:overview/RefreshCharts": {
+        "kind": "QueryAction",
+        "intent": "Force-fresh re-read of chart-series on pull-to-refresh.",
+        "refs": {}
+      },
+      "assert:detail/SeriesLoaded": {
+        "kind": "Assertion",
+        "intent": "The drill-down detail series has finished loading with a non-error, non-empty result before an export can be requested.",
+        "refs": {}
+      },
+      "assert:filter/RangeValid": {
+        "kind": "Assertion",
+        "intent": "The draft filter range is well-formed (start <= end, supported granularity) before Apply can commit.",
+        "refs": {}
+      },
+      "assert:filter/RawDataAvailable": {
+        "kind": "Assertion",
+        "intent": "The locally cached raw transactions are present (an initial ledger sync has completed) before committing a filter kicks the re-aggregation pipeline.",
+        "refs": {}
+      },
+      "assert:overview/CardSeriesReady": {
+        "kind": "Assertion",
+        "intent": "The tapped metric card's chart series is present (its load completed non-error) before drilling into the metric-detail screen.",
+        "refs": {}
+      },
+      "assert:overview/FilterApplied": {
+        "kind": "Assertion",
+        "intent": "An applied filter (period kind + active range) exists in FilterStore before the chart-series query can be scoped and run on appear.",
+        "refs": {}
+      },
+      "assert:overview/RefreshNotInFlight": {
+        "kind": "Assertion",
+        "intent": "No chart refresh is already in flight (the chart-load phase is not 'loading') before a new force-fresh pull-to-refresh re-read is kicked off.",
+        "refs": {}
+      },
+      "trig:detail/Appear": {
+        "kind": "Trigger",
+        "intent": "Metric-detail screen appears.",
+        "refs": {}
+      },
+      "trig:detail/ExportTap": {
+        "kind": "Trigger",
+        "intent": "User taps the export/download button on the detail screen.",
+        "refs": {}
+      },
+      "trig:filter/ApplyTap": {
+        "kind": "Trigger",
+        "intent": "User taps 'Done/Apply' in the filter sheet.",
+        "refs": {}
+      },
+      "trig:filter/CancelTap": {
+        "kind": "Trigger",
+        "intent": "User taps the X to dismiss the filter sheet without applying.",
+        "refs": {}
+      },
+      "trig:filter/SegmentChange": {
+        "kind": "Trigger",
+        "intent": "User changes weekly/monthly/yearly or the picker value in the filter sheet.",
+        "refs": {}
+      },
+      "trig:overview/Appear": {
+        "kind": "Trigger",
+        "intent": "Overview screen appears (initial load + return).",
+        "refs": {}
+      },
+      "trig:overview/CardTap": {
+        "kind": "Trigger",
+        "intent": "User taps a metric card to drill in.",
+        "refs": {}
+      },
+      "trig:overview/FilterTap": {
+        "kind": "Trigger",
+        "intent": "User taps the filter/period chip in the header.",
+        "refs": {}
+      },
+      "trig:overview/PullToRefresh": {
+        "kind": "Trigger",
+        "intent": "User pulls to refresh the overview.",
+        "refs": {}
+      },
+      "vs:detail/Load": {
+        "kind": "ViewState",
+        "intent": "Loading/empty/error state for the drill-down detail series.",
+        "refs": {},
+        "attrs": {
+          "phase": "loading"
+        }
       },
       "vs:filter/Draft": {
         "kind": "ViewState",
@@ -301,56 +339,65 @@
         "attrs": {
           "phase": "loading"
         }
-      },
-      "vs:detail/Load": {
-        "kind": "ViewState",
-        "intent": "Loading/empty/error state for the drill-down detail series.",
-        "refs": {},
-        "attrs": {
-          "phase": "loading"
-        }
-      },
-      "assert:filter/RangeValid": {
-        "kind": "Assertion",
-        "intent": "The draft filter range is well-formed (start <= end, supported granularity) before Apply can commit.",
-        "refs": {}
-      },
-      "assert:overview/FilterApplied": {
-        "kind": "Assertion",
-        "intent": "An applied filter (period kind + active range) exists in FilterStore before the chart-series query can be scoped and run on appear.",
-        "refs": {}
-      },
-      "assert:overview/RefreshNotInFlight": {
-        "kind": "Assertion",
-        "intent": "No chart refresh is already in flight (the chart-load phase is not 'loading') before a new force-fresh pull-to-refresh re-read is kicked off.",
-        "refs": {}
-      },
-      "assert:overview/CardSeriesReady": {
-        "kind": "Assertion",
-        "intent": "The tapped metric card's chart series is present (its load completed non-error) before drilling into the metric-detail screen.",
-        "refs": {}
-      },
-      "assert:filter/RawDataAvailable": {
-        "kind": "Assertion",
-        "intent": "The locally cached raw transactions are present (an initial ledger sync has completed) before committing a filter kicks the re-aggregation pipeline.",
-        "refs": {}
-      },
-      "assert:detail/SeriesLoaded": {
-        "kind": "Assertion",
-        "intent": "The drill-down detail series has finished loading with a non-error, non-empty result before an export can be requested.",
-        "refs": {}
       }
     },
     "substrate": {
-      "store:FilterStore": {
-        "kind": "StateStore",
-        "intent": "Applied analytics filter (period kind + range), source of truth that drives every chart re-query.",
+      "fx:analytics/ExportShared": {
+        "kind": "SideEffect",
+        "intent": "Analytics event when an export is successfully shared.",
         "refs": {}
       },
-      "store:RawTxnStore": {
-        "kind": "StateStore",
-        "intent": "Locally cached raw transactions/ledger rows synced from the backend; the pipeline's raw input.",
+      "fx:analytics/FilterApplied": {
+        "kind": "SideEffect",
+        "intent": "Analytics event when a filter is applied (period kind, range).",
         "refs": {}
+      },
+      "fx:toast/ExportFailed": {
+        "kind": "SideEffect",
+        "intent": "Toast shown when the export share fails.",
+        "refs": {}
+      },
+      "op:ExportReport": {
+        "kind": "BackendOp",
+        "intent": "Render the export file (CSV/PDF) for the active metric + filter range.",
+        "refs": {}
+      },
+      "op:SyncLedger": {
+        "kind": "BackendOp",
+        "intent": "Backend sync that pulls fresh transactions into RawTxnStore.",
+        "refs": {}
+      },
+      "src:LedgerAPI": {
+        "kind": "DataSource",
+        "intent": "Remote ledger/transactions API; origin of raw transaction sync.",
+        "refs": {}
+      },
+      "stage:agg/Aggregate": {
+        "kind": "PipelineStage",
+        "intent": "Fold normalized buckets into per-period aggregates (sum/avg/delta) — fan-in over the filter range.",
+        "refs": {},
+        "attrs": {
+          "llm": false,
+          "stage": "AGGREGATE"
+        }
+      },
+      "stage:agg/Normalize": {
+        "kind": "PipelineStage",
+        "intent": "Normalize/bucket raw transactions into the filter's granularity (deterministic).",
+        "refs": {},
+        "attrs": {
+          "llm": false,
+          "stage": "NORMALIZE"
+        }
+      },
+      "stage:agg/Series": {
+        "kind": "PipelineStage",
+        "intent": "Project aggregates into render-ready chart series per metric (deterministic).",
+        "refs": {},
+        "attrs": {
+          "llm": false,
+          "stage": "SERIES"
+        }
       },
       "store:AggregateStore": {
         "kind": "StateStore",
@@ -367,65 +414,17 @@
         "intent": "Detailed per-category breakdown series for the drilled-in metric.",
         "refs": {}
       },
-      "src:LedgerAPI": {
-        "kind": "DataSource",
-        "intent": "Remote ledger/transactions API; origin of raw transaction sync.",
+      "store:FilterStore": {
+        "kind": "StateStore",
+        "intent": "Applied analytics filter (period kind + range), source of truth that drives every chart re-query.",
         "refs": {}
       },
-      "op:SyncLedger": {
-        "kind": "BackendOp",
-        "intent": "Backend sync that pulls fresh transactions into RawTxnStore.",
-        "refs": {}
-      },
-      "op:ExportReport": {
-        "kind": "BackendOp",
-        "intent": "Render the export file (CSV/PDF) for the active metric + filter range.",
-        "refs": {}
-      },
-      "stage:agg/Normalize": {
-        "kind": "PipelineStage",
-        "intent": "Normalize/bucket raw transactions into the filter's granularity (deterministic).",
-        "attrs": {
-          "llm": false,
-          "stage": "NORMALIZE"
-        },
-        "refs": {}
-      },
-      "stage:agg/Aggregate": {
-        "kind": "PipelineStage",
-        "intent": "Fold normalized buckets into per-period aggregates (sum/avg/delta) — fan-in over the filter range.",
-        "attrs": {
-          "llm": false,
-          "stage": "AGGREGATE"
-        },
-        "refs": {}
-      },
-      "stage:agg/Series": {
-        "kind": "PipelineStage",
-        "intent": "Project aggregates into render-ready chart series per metric (deterministic).",
-        "attrs": {
-          "llm": false,
-          "stage": "SERIES"
-        },
-        "refs": {}
-      },
-      "fx:analytics/FilterApplied": {
-        "kind": "SideEffect",
-        "intent": "Analytics event when a filter is applied (period kind, range).",
-        "refs": {}
-      },
-      "fx:analytics/ExportShared": {
-        "kind": "SideEffect",
-        "intent": "Analytics event when an export is successfully shared.",
-        "refs": {}
-      },
-      "fx:toast/ExportFailed": {
-        "kind": "SideEffect",
-        "intent": "Toast shown when the export share fails.",
+      "store:RawTxnStore": {
+        "kind": "StateStore",
+        "intent": "Locally cached raw transactions/ledger rows synced from the backend; the pipeline's raw input.",
         "refs": {}
       }
     },
-    "policy": {},
     "boundary": {
       "x-ext:share/ExportSheet": {
         "kind": "x-ext:ExternalSurface",
@@ -439,52 +438,194 @@
   },
   "edges": [
     {
-      "type": "renders",
-      "from": "screen:analytics/Overview",
-      "to": "comp:analytics/MetricCard",
-      "repeat": true
+      "type": "binds",
+      "from": "comp:analytics/BreakdownList",
+      "to": "store:DetailSeriesStore",
+      "scopedBy": "MetricDetail.metricId"
     },
     {
-      "type": "renders",
-      "from": "screen:analytics/Overview",
-      "to": "comp:analytics/ChartView",
-      "repeat": true
+      "type": "binds",
+      "from": "comp:analytics/ChartView",
+      "to": "store:ChartSeriesStore",
+      "scopedBy": "FilterStore.activeRange"
     },
     {
-      "type": "renders",
-      "from": "screen:analytics/FilterPeriod",
-      "to": "comp:analytics/PeriodSegment",
-      "repeat": false
+      "type": "binds",
+      "from": "comp:analytics/ChartView",
+      "to": "vs:overview/ChartLoad"
     },
     {
-      "type": "renders",
+      "type": "binds",
+      "from": "comp:analytics/MetricCard",
+      "to": "store:ChartSeriesStore",
+      "scopedBy": "card.metricId"
+    },
+    {
+      "type": "binds",
+      "from": "comp:analytics/PeriodSegment",
+      "to": "vs:filter/Draft"
+    },
+    {
+      "type": "binds",
       "from": "screen:analytics/MetricDetail",
-      "to": "comp:analytics/ChartView",
-      "repeat": false
+      "to": "vs:detail/Load"
     },
     {
-      "type": "renders",
-      "from": "screen:analytics/MetricDetail",
-      "to": "comp:analytics/BreakdownList",
-      "repeat": false
-    },
-    {
-      "type": "handles",
+      "type": "binds",
       "from": "screen:analytics/Overview",
-      "to": "trig:overview/Appear",
-      "event": "appear"
+      "to": "store:FilterStore"
     },
     {
-      "type": "handles",
-      "from": "screen:analytics/Overview",
-      "to": "trig:overview/PullToRefresh",
-      "event": "pullToRefresh"
+      "type": "derivesFrom",
+      "from": "assert:detail/SeriesLoaded",
+      "to": "vs:detail/Load"
     },
     {
-      "type": "handles",
-      "from": "screen:analytics/Overview",
-      "to": "trig:overview/FilterTap",
-      "event": "tap"
+      "type": "derivesFrom",
+      "from": "assert:filter/RangeValid",
+      "to": "vs:filter/Draft"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:filter/RawDataAvailable",
+      "to": "store:RawTxnStore"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:overview/CardSeriesReady",
+      "to": "store:ChartSeriesStore"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:overview/FilterApplied",
+      "to": "store:FilterStore"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:overview/RefreshNotInFlight",
+      "to": "vs:overview/ChartLoad"
+    },
+    {
+      "type": "dismisses",
+      "from": "act:filter/ApplyAndClose",
+      "to": "screen:analytics/FilterPeriod",
+      "target": "self"
+    },
+    {
+      "type": "dismisses",
+      "from": "act:filter/Cancel",
+      "to": "screen:analytics/FilterPeriod",
+      "target": "self"
+    },
+    {
+      "type": "emits",
+      "from": "act:filter/ApplyAndClose",
+      "to": "fx:analytics/FilterApplied",
+      "effect": "analytics"
+    },
+    {
+      "type": "emits",
+      "from": "x-ext:share/ExportSheet",
+      "to": "fx:analytics/ExportShared",
+      "effect": "analytics"
+    },
+    {
+      "type": "emits",
+      "from": "x-ext:share/ExportSheet",
+      "to": "fx:toast/ExportFailed",
+      "effect": "toast"
+    },
+    {
+      "type": "fires",
+      "from": "trig:detail/Appear",
+      "to": "act:detail/LoadDetail",
+      "scopedBy": "MetricDetail.metricId",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:detail/ExportTap",
+      "to": "act:detail/Export",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:filter/ApplyTap",
+      "to": "act:filter/ApplyAndClose",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:filter/CancelTap",
+      "to": "act:filter/Cancel",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:filter/SegmentChange",
+      "to": "act:filter/UpdateDraft",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:overview/Appear",
+      "to": "act:overview/LoadCharts",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:overview/CardTap",
+      "to": "act:overview/GoToDetail",
+      "scopedBy": "card.metricId",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:overview/FilterTap",
+      "to": "act:overview/PresentFilter",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:overview/PullToRefresh",
+      "to": "act:overview/RefreshCharts",
+      "seq": 0
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:detail/Export",
+      "to": "assert:detail/SeriesLoaded",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:filter/ApplyAndClose",
+      "to": "assert:filter/RangeValid",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:filter/ApplyAndClose",
+      "to": "assert:filter/RawDataAvailable",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:overview/GoToDetail",
+      "to": "assert:overview/CardSeriesReady",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:overview/LoadCharts",
+      "to": "assert:overview/FilterApplied",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:overview/RefreshCharts",
+      "to": "assert:overview/RefreshNotInFlight",
+      "polarity": "require"
     },
     {
       "type": "handles",
@@ -523,132 +664,29 @@
       "event": "tap"
     },
     {
-      "type": "binds",
+      "type": "handles",
       "from": "screen:analytics/Overview",
-      "to": "store:FilterStore"
+      "to": "trig:overview/Appear",
+      "event": "appear"
     },
     {
-      "type": "binds",
-      "from": "comp:analytics/ChartView",
-      "to": "store:ChartSeriesStore",
-      "scopedBy": "FilterStore.activeRange"
+      "type": "handles",
+      "from": "screen:analytics/Overview",
+      "to": "trig:overview/FilterTap",
+      "event": "tap"
     },
     {
-      "type": "binds",
-      "from": "comp:analytics/ChartView",
-      "to": "vs:overview/ChartLoad"
+      "type": "handles",
+      "from": "screen:analytics/Overview",
+      "to": "trig:overview/PullToRefresh",
+      "event": "pullToRefresh"
     },
     {
-      "type": "binds",
-      "from": "comp:analytics/MetricCard",
-      "to": "store:ChartSeriesStore",
-      "scopedBy": "card.metricId"
-    },
-    {
-      "type": "binds",
-      "from": "comp:analytics/PeriodSegment",
-      "to": "vs:filter/Draft"
-    },
-    {
-      "type": "binds",
-      "from": "comp:analytics/BreakdownList",
-      "to": "store:DetailSeriesStore",
-      "scopedBy": "MetricDetail.metricId"
-    },
-    {
-      "type": "binds",
-      "from": "screen:analytics/MetricDetail",
-      "to": "vs:detail/Load"
-    },
-    {
-      "type": "fires",
-      "from": "trig:overview/Appear",
-      "to": "act:overview/LoadCharts",
-      "seq": 0
-    },
-    {
-      "type": "fires",
-      "from": "trig:overview/PullToRefresh",
-      "to": "act:overview/RefreshCharts",
-      "seq": 0
-    },
-    {
-      "type": "fires",
-      "from": "trig:overview/FilterTap",
-      "to": "act:overview/PresentFilter",
-      "seq": 0
-    },
-    {
-      "type": "fires",
-      "from": "trig:overview/CardTap",
-      "to": "act:overview/GoToDetail",
-      "seq": 0,
-      "scopedBy": "card.metricId"
-    },
-    {
-      "type": "fires",
-      "from": "trig:filter/SegmentChange",
-      "to": "act:filter/UpdateDraft",
-      "seq": 0
-    },
-    {
-      "type": "fires",
-      "from": "trig:filter/ApplyTap",
-      "to": "act:filter/ApplyAndClose",
-      "seq": 0
-    },
-    {
-      "type": "fires",
-      "from": "trig:filter/CancelTap",
-      "to": "act:filter/Cancel",
-      "seq": 0
-    },
-    {
-      "type": "fires",
-      "from": "trig:detail/Appear",
-      "to": "act:detail/LoadDetail",
-      "seq": 0,
-      "scopedBy": "MetricDetail.metricId"
-    },
-    {
-      "type": "fires",
-      "from": "trig:detail/ExportTap",
-      "to": "act:detail/Export",
-      "seq": 0
-    },
-    {
-      "type": "navigates",
-      "from": "act:overview/PresentFilter",
-      "to": "screen:analytics/FilterPeriod",
-      "present": "sheet"
-    },
-    {
-      "type": "navigates",
-      "from": "act:overview/GoToDetail",
-      "to": "screen:analytics/MetricDetail",
-      "present": "push"
-    },
-    {
-      "type": "setsViewState",
-      "from": "act:filter/UpdateDraft",
-      "to": "vs:filter/Draft"
-    },
-    {
-      "type": "guardedBy",
-      "from": "act:filter/ApplyAndClose",
-      "to": "assert:filter/RangeValid",
-      "polarity": "require"
-    },
-    {
-      "type": "derivesFrom",
-      "from": "assert:filter/RangeValid",
-      "to": "vs:filter/Draft"
-    },
-    {
-      "type": "writes",
-      "from": "act:filter/ApplyAndClose",
-      "to": "store:FilterStore",
-      "mode": "set"
+      "type": "invokes",
+      "from": "act:detail/Export",
+      "to": "op:ExportReport",
+      "awaits": true,
+      "idempotent": true
     },
     {
       "type": "invokes",
@@ -658,22 +696,52 @@
       "idempotent": true
     },
     {
-      "type": "emits",
-      "from": "act:filter/ApplyAndClose",
-      "to": "fx:analytics/FilterApplied",
-      "effect": "analytics"
+      "type": "navigates",
+      "from": "act:detail/Export",
+      "to": "x-ext:share/ExportSheet",
+      "present": "sheet"
     },
     {
-      "type": "dismisses",
-      "from": "act:filter/ApplyAndClose",
-      "to": "screen:analytics/FilterPeriod",
-      "target": "self"
+      "type": "navigates",
+      "from": "act:overview/GoToDetail",
+      "to": "screen:analytics/MetricDetail",
+      "present": "push"
     },
     {
-      "type": "dismisses",
-      "from": "act:filter/Cancel",
+      "type": "navigates",
+      "from": "act:overview/PresentFilter",
       "to": "screen:analytics/FilterPeriod",
-      "target": "self"
+      "present": "sheet"
+    },
+    {
+      "type": "produces",
+      "from": "op:ExportReport",
+      "to": "store:DetailSeriesStore",
+      "artifact": "exportFile"
+    },
+    {
+      "type": "produces",
+      "from": "op:SyncLedger",
+      "to": "store:RawTxnStore",
+      "artifact": "rawTransactions"
+    },
+    {
+      "type": "produces",
+      "from": "stage:agg/Aggregate",
+      "to": "store:AggregateStore",
+      "artifact": "periodAggregates"
+    },
+    {
+      "type": "produces",
+      "from": "stage:agg/Series",
+      "to": "store:ChartSeriesStore",
+      "artifact": "chartSeries"
+    },
+    {
+      "type": "reads",
+      "from": "act:detail/LoadDetail",
+      "to": "store:DetailSeriesStore",
+      "cachePolicy": "cached"
     },
     {
       "type": "reads",
@@ -689,79 +757,50 @@
     },
     {
       "type": "reads",
-      "from": "act:detail/LoadDetail",
-      "to": "store:DetailSeriesStore",
-      "cachePolicy": "cached"
-    },
-    {
-      "type": "invokes",
-      "from": "act:detail/Export",
-      "to": "op:ExportReport",
-      "awaits": true,
-      "idempotent": true
-    },
-    {
-      "type": "navigates",
-      "from": "act:detail/Export",
-      "to": "x-ext:share/ExportSheet",
-      "present": "sheet"
-    },
-    {
-      "type": "reads",
       "from": "op:SyncLedger",
       "to": "src:LedgerAPI",
       "cachePolicy": "fresh"
     },
     {
-      "type": "produces",
-      "from": "op:SyncLedger",
-      "to": "store:RawTxnStore",
-      "artifact": "rawTransactions"
+      "type": "renders",
+      "from": "screen:analytics/FilterPeriod",
+      "to": "comp:analytics/PeriodSegment",
+      "repeat": false
     },
     {
-      "type": "produces",
-      "from": "op:ExportReport",
-      "to": "store:DetailSeriesStore",
-      "artifact": "exportFile"
+      "type": "renders",
+      "from": "screen:analytics/MetricDetail",
+      "to": "comp:analytics/BreakdownList",
+      "repeat": false
     },
     {
-      "type": "x-pipeline:consumes",
-      "from": "store:RawTxnStore",
-      "to": "stage:agg/Normalize"
+      "type": "renders",
+      "from": "screen:analytics/MetricDetail",
+      "to": "comp:analytics/ChartView",
+      "repeat": false
     },
     {
-      "type": "x-pipeline:consumes",
-      "from": "store:FilterStore",
-      "to": "stage:agg/Normalize"
+      "type": "renders",
+      "from": "screen:analytics/Overview",
+      "to": "comp:analytics/ChartView",
+      "repeat": true
     },
     {
-      "type": "x-pipeline:consumes",
-      "from": "store:FilterStore",
-      "to": "stage:agg/Aggregate"
+      "type": "renders",
+      "from": "screen:analytics/Overview",
+      "to": "comp:analytics/MetricCard",
+      "repeat": true
     },
     {
-      "type": "x-pipeline:feeds",
-      "from": "stage:agg/Normalize",
-      "to": "stage:agg/Aggregate",
-      "transport": "inline"
+      "type": "setsViewState",
+      "from": "act:filter/UpdateDraft",
+      "to": "vs:filter/Draft"
     },
     {
-      "type": "x-pipeline:feeds",
-      "from": "stage:agg/Aggregate",
-      "to": "stage:agg/Series",
-      "transport": "inline"
-    },
-    {
-      "type": "produces",
-      "from": "stage:agg/Aggregate",
-      "to": "store:AggregateStore",
-      "artifact": "periodAggregates"
-    },
-    {
-      "type": "produces",
-      "from": "stage:agg/Series",
-      "to": "store:ChartSeriesStore",
-      "artifact": "chartSeries"
+      "type": "writes",
+      "from": "act:filter/ApplyAndClose",
+      "to": "store:FilterStore",
+      "mode": "set"
     },
     {
       "type": "x-ext:returnsTo",
@@ -785,71 +824,31 @@
       "when": "failed"
     },
     {
-      "type": "emits",
-      "from": "x-ext:share/ExportSheet",
-      "to": "fx:analytics/ExportShared",
-      "effect": "analytics"
+      "type": "x-pipeline:consumes",
+      "from": "store:FilterStore",
+      "to": "stage:agg/Aggregate"
     },
     {
-      "type": "emits",
-      "from": "x-ext:share/ExportSheet",
-      "to": "fx:toast/ExportFailed",
-      "effect": "toast"
+      "type": "x-pipeline:consumes",
+      "from": "store:FilterStore",
+      "to": "stage:agg/Normalize"
     },
     {
-      "type": "guardedBy",
-      "from": "act:overview/LoadCharts",
-      "to": "assert:overview/FilterApplied",
-      "polarity": "require"
+      "type": "x-pipeline:consumes",
+      "from": "store:RawTxnStore",
+      "to": "stage:agg/Normalize"
     },
     {
-      "type": "derivesFrom",
-      "from": "assert:overview/FilterApplied",
-      "to": "store:FilterStore"
+      "type": "x-pipeline:feeds",
+      "from": "stage:agg/Aggregate",
+      "to": "stage:agg/Series",
+      "transport": "inline"
     },
     {
-      "type": "guardedBy",
-      "from": "act:overview/RefreshCharts",
-      "to": "assert:overview/RefreshNotInFlight",
-      "polarity": "require"
-    },
-    {
-      "type": "derivesFrom",
-      "from": "assert:overview/RefreshNotInFlight",
-      "to": "vs:overview/ChartLoad"
-    },
-    {
-      "type": "guardedBy",
-      "from": "act:overview/GoToDetail",
-      "to": "assert:overview/CardSeriesReady",
-      "polarity": "require"
-    },
-    {
-      "type": "derivesFrom",
-      "from": "assert:overview/CardSeriesReady",
-      "to": "store:ChartSeriesStore"
-    },
-    {
-      "type": "guardedBy",
-      "from": "act:filter/ApplyAndClose",
-      "to": "assert:filter/RawDataAvailable",
-      "polarity": "require"
-    },
-    {
-      "type": "derivesFrom",
-      "from": "assert:filter/RawDataAvailable",
-      "to": "store:RawTxnStore"
-    },
-    {
-      "type": "guardedBy",
-      "from": "act:detail/Export",
-      "to": "assert:detail/SeriesLoaded",
-      "polarity": "require"
-    },
-    {
-      "type": "derivesFrom",
-      "from": "assert:detail/SeriesLoaded",
-      "to": "vs:detail/Load"
+      "type": "x-pipeline:feeds",
+      "from": "stage:agg/Normalize",
+      "to": "stage:agg/Aggregate",
+      "transport": "inline"
     }
   ]
 }

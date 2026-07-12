@@ -2,7 +2,7 @@
   "meta": {
     "schema": "maapp-graph",
     "version": "1.4",
-    "vocab": "spec/EDGE-VOCABULARY.md",
+    "vocab": "docs/EDGE-VOCABULARY.md",
     "app": "Calmly — first-run onboarding + signup (welcome carousel -> sign-up/sign-in choice -> email or social auth -> notification priming -> preference setup -> done/home)",
     "mobbin_ref": "Headspace 'Onboarding' flow 31b21791-dec6-448a-8253-648f5ebbba3e (welcome carousel + create-account/log-in choice + email & social auth + 'What's on your mind?' preference select); sign-in branch modeled after Headspace 'Logging in' 5d307187-d3b5-4812-b52f-dc003bda52b6",
     "query": "graph query <node|neighbors|blast-radius|trace|view|orphans> [args] <file>",
@@ -109,9 +109,24 @@
   },
   "nodes": {
     "surface": {
-      "screen:onb/Welcome": {
-        "kind": "Screen",
-        "intent": "First-run welcome carousel: swipeable value-prop pages ('Science-backed calm') with paging dots; Get Started + 'Already have an account? Log in' link.",
+      "comp:auth/SignUpForm": {
+        "kind": "Component",
+        "intent": "Name/email/password field group on the sign-up screen.",
+        "refs": {}
+      },
+      "comp:auth/SocialButtons": {
+        "kind": "Component",
+        "intent": "Shared Apple / Google social-auth button row reused on sign-up and sign-in.",
+        "refs": {}
+      },
+      "comp:onb/Carousel": {
+        "kind": "Component",
+        "intent": "Paged value-prop carousel with dot indicator on the welcome screen.",
+        "refs": {}
+      },
+      "comp:pref/GoalList": {
+        "kind": "Component",
+        "intent": "Single-select goal option list on the goal preference step.",
         "refs": {}
       },
       "screen:auth/Choice": {
@@ -119,14 +134,29 @@
         "intent": "Sign-up/sign-in choice: 'Create an account' primary CTA, 'Log in' secondary, terms-acknowledgement checkbox; the auth fork point.",
         "refs": {}
       },
+      "screen:auth/SignIn": {
+        "kind": "Screen",
+        "intent": "Returning-user log-in: email + password, Forgot-password link; Log in + the same social buttons.",
+        "refs": {}
+      },
       "screen:auth/SignUp": {
         "kind": "Screen",
         "intent": "Account-creation form: first/last name, email, password fields with inline validity; Continue + social buttons (Apple / Google) below.",
         "refs": {}
       },
-      "screen:auth/SignIn": {
+      "screen:home/Today": {
         "kind": "Screen",
-        "intent": "Returning-user log-in: email + password, Forgot-password link; Log in + the same social buttons.",
+        "intent": "Main app home (today feed) — the onboarding handoff destination.",
+        "refs": {}
+      },
+      "screen:onb/Done": {
+        "kind": "Screen",
+        "intent": "'You're all set' confirmation: assembles the profile from collected prefs, then replaces root into app home.",
+        "refs": {}
+      },
+      "screen:onb/Welcome": {
+        "kind": "Screen",
+        "intent": "First-run welcome carousel: swipeable value-prop pages ('Science-backed calm') with paging dots; Get Started + 'Already have an account? Log in' link.",
         "refs": {}
       },
       "screen:perm/NotificationPriming": {
@@ -143,132 +173,17 @@
         "kind": "Screen",
         "intent": "Preference setup: daily-reminder time picker; Save sets the reminder preference. Continue.",
         "refs": {}
-      },
-      "screen:onb/Done": {
-        "kind": "Screen",
-        "intent": "'You're all set' confirmation: assembles the profile from collected prefs, then replaces root into app home.",
-        "refs": {}
-      },
-      "screen:home/Today": {
-        "kind": "Screen",
-        "intent": "Main app home (today feed) — the onboarding handoff destination.",
-        "refs": {}
-      },
-      "comp:onb/Carousel": {
-        "kind": "Component",
-        "intent": "Paged value-prop carousel with dot indicator on the welcome screen.",
-        "refs": {}
-      },
-      "comp:auth/SocialButtons": {
-        "kind": "Component",
-        "intent": "Shared Apple / Google social-auth button row reused on sign-up and sign-in.",
-        "refs": {}
-      },
-      "comp:auth/SignUpForm": {
-        "kind": "Component",
-        "intent": "Name/email/password field group on the sign-up screen.",
-        "refs": {}
-      },
-      "comp:pref/GoalList": {
-        "kind": "Component",
-        "intent": "Single-select goal option list on the goal preference step.",
-        "refs": {}
       }
     },
     "logic": {
-      "trig:onb/GetStartedTap": {
-        "kind": "Trigger",
-        "intent": "User taps Get Started on the final welcome carousel page.",
-        "refs": {}
-      },
-      "trig:onb/HaveAccountTap": {
-        "kind": "Trigger",
-        "intent": "User taps the 'Already have an account? Log in' link on welcome.",
-        "refs": {}
-      },
-      "trig:auth/CreateAccountTap": {
-        "kind": "Trigger",
-        "intent": "User taps Create an account on the choice screen.",
-        "refs": {}
-      },
-      "trig:auth/LogInTap": {
-        "kind": "Trigger",
-        "intent": "User taps Log in on the choice screen.",
-        "refs": {}
-      },
-      "trig:auth/SignUpFieldChange": {
-        "kind": "Trigger",
-        "intent": "User edits a sign-up form field (drives live validity).",
-        "refs": {}
-      },
-      "trig:auth/SignUpSubmitTap": {
-        "kind": "Trigger",
-        "intent": "User taps Continue to create the account (gated by form validity).",
-        "refs": {}
-      },
-      "trig:auth/SocialTap": {
-        "kind": "Trigger",
-        "intent": "User taps a social-auth button (Apple / Google) on sign-up or sign-in.",
-        "refs": {}
-      },
-      "trig:auth/SignInSubmitTap": {
-        "kind": "Trigger",
-        "intent": "User submits the log-in form (email + password).",
-        "refs": {}
-      },
-      "trig:perm/EnableTap": {
-        "kind": "Trigger",
-        "intent": "User taps 'Enable reminders' on the priming screen.",
-        "refs": {}
-      },
-      "trig:perm/SkipTap": {
-        "kind": "Trigger",
-        "intent": "User taps 'Maybe later' to skip the notification priming.",
-        "refs": {}
-      },
-      "trig:pref/GoalSelectTap": {
-        "kind": "Trigger",
-        "intent": "User selects a goal option (auto-advances).",
-        "refs": {}
-      },
-      "trig:pref/ReminderSaveTap": {
-        "kind": "Trigger",
-        "intent": "User taps Save/Continue on the reminder-time step.",
-        "refs": {}
-      },
-      "trig:onb/FinishTap": {
-        "kind": "Trigger",
-        "intent": "User taps Done on the confirmation screen.",
-        "refs": {}
-      },
-      "act:onb/GoToChoice": {
-        "kind": "NavAction",
-        "intent": "Advance from welcome into the auth choice screen.",
-        "refs": {}
-      },
-      "act:onb/GoToSignIn": {
-        "kind": "NavAction",
-        "intent": "Jump straight to the sign-in screen from the welcome log-in link.",
-        "refs": {}
-      },
-      "act:auth/GoToSignUp": {
-        "kind": "NavAction",
-        "intent": "Present the sign-up form from the choice screen.",
-        "refs": {}
-      },
       "act:auth/GoToSignIn": {
         "kind": "NavAction",
         "intent": "Present the sign-in form from the choice screen.",
         "refs": {}
       },
-      "act:auth/UpdateSignUpField": {
-        "kind": "ViewStateAction",
-        "intent": "Write the edited sign-up field value into the local form view-state.",
-        "refs": {}
-      },
-      "act:auth/SubmitSignUp": {
-        "kind": "MutationAction",
-        "intent": "G15 multi-effect: create the account via the signup backend op, write the session, emit analytics, AND advance to notification priming (gated by form validity).",
+      "act:auth/GoToSignUp": {
+        "kind": "NavAction",
+        "intent": "Present the sign-up form from the choice screen.",
         "refs": {}
       },
       "act:auth/PresentSocial": {
@@ -279,6 +194,31 @@
       "act:auth/SubmitSignIn": {
         "kind": "MutationAction",
         "intent": "G15 multi-effect: authenticate the returning user via the sign-in backend op, write the session, AND advance to notification priming.",
+        "refs": {}
+      },
+      "act:auth/SubmitSignUp": {
+        "kind": "MutationAction",
+        "intent": "G15 multi-effect: create the account via the signup backend op, write the session, emit analytics, AND advance to notification priming (gated by form validity).",
+        "refs": {}
+      },
+      "act:auth/UpdateSignUpField": {
+        "kind": "ViewStateAction",
+        "intent": "Write the edited sign-up field value into the local form view-state.",
+        "refs": {}
+      },
+      "act:onb/FinishOnboarding": {
+        "kind": "MutationAction",
+        "intent": "G15 multi-effect: assemble the profile from collected prefs, emit completion analytics, AND replace-root into app home.",
+        "refs": {}
+      },
+      "act:onb/GoToChoice": {
+        "kind": "NavAction",
+        "intent": "Advance from welcome into the auth choice screen.",
+        "refs": {}
+      },
+      "act:onb/GoToSignIn": {
+        "kind": "NavAction",
+        "intent": "Jump straight to the sign-in screen from the welcome log-in link.",
         "refs": {}
       },
       "act:perm/RequestNotifications": {
@@ -301,19 +241,6 @@
         "intent": "G15 multi-effect: save the reminder time to the preference store AND advance to the confirmation screen.",
         "refs": {}
       },
-      "act:onb/FinishOnboarding": {
-        "kind": "MutationAction",
-        "intent": "G15 multi-effect: assemble the profile from collected prefs, emit completion analytics, AND replace-root into app home.",
-        "refs": {}
-      },
-      "vs:auth/SignUpForm": {
-        "kind": "ViewState",
-        "intent": "Local sign-up form view-state (name/email/password values + touched flags) before account creation.",
-        "refs": {},
-        "attrs": {
-          "phase": "editing"
-        }
-      },
       "assert:auth/SignUpValid": {
         "kind": "Assertion",
         "intent": "Sign-up form is valid (G16: derives from the live form ViewState, not a persisted store).",
@@ -328,9 +255,112 @@
         "kind": "Assertion",
         "intent": "A goal option has been selected (gates the goal save-and-advance).",
         "refs": {}
+      },
+      "trig:auth/CreateAccountTap": {
+        "kind": "Trigger",
+        "intent": "User taps Create an account on the choice screen.",
+        "refs": {}
+      },
+      "trig:auth/LogInTap": {
+        "kind": "Trigger",
+        "intent": "User taps Log in on the choice screen.",
+        "refs": {}
+      },
+      "trig:auth/SignInSubmitTap": {
+        "kind": "Trigger",
+        "intent": "User submits the log-in form (email + password).",
+        "refs": {}
+      },
+      "trig:auth/SignUpFieldChange": {
+        "kind": "Trigger",
+        "intent": "User edits a sign-up form field (drives live validity).",
+        "refs": {}
+      },
+      "trig:auth/SignUpSubmitTap": {
+        "kind": "Trigger",
+        "intent": "User taps Continue to create the account (gated by form validity).",
+        "refs": {}
+      },
+      "trig:auth/SocialTap": {
+        "kind": "Trigger",
+        "intent": "User taps a social-auth button (Apple / Google) on sign-up or sign-in.",
+        "refs": {}
+      },
+      "trig:onb/FinishTap": {
+        "kind": "Trigger",
+        "intent": "User taps Done on the confirmation screen.",
+        "refs": {}
+      },
+      "trig:onb/GetStartedTap": {
+        "kind": "Trigger",
+        "intent": "User taps Get Started on the final welcome carousel page.",
+        "refs": {}
+      },
+      "trig:onb/HaveAccountTap": {
+        "kind": "Trigger",
+        "intent": "User taps the 'Already have an account? Log in' link on welcome.",
+        "refs": {}
+      },
+      "trig:perm/EnableTap": {
+        "kind": "Trigger",
+        "intent": "User taps 'Enable reminders' on the priming screen.",
+        "refs": {}
+      },
+      "trig:perm/SkipTap": {
+        "kind": "Trigger",
+        "intent": "User taps 'Maybe later' to skip the notification priming.",
+        "refs": {}
+      },
+      "trig:pref/GoalSelectTap": {
+        "kind": "Trigger",
+        "intent": "User selects a goal option (auto-advances).",
+        "refs": {}
+      },
+      "trig:pref/ReminderSaveTap": {
+        "kind": "Trigger",
+        "intent": "User taps Save/Continue on the reminder-time step.",
+        "refs": {}
+      },
+      "vs:auth/SignUpForm": {
+        "kind": "ViewState",
+        "intent": "Local sign-up form view-state (name/email/password values + touched flags) before account creation.",
+        "refs": {},
+        "attrs": {
+          "phase": "editing"
+        }
       }
     },
     "substrate": {
+      "fx:analytics/AccountCreated": {
+        "kind": "SideEffect",
+        "intent": "Analytics event when an account is created.",
+        "refs": {}
+      },
+      "fx:analytics/OnboardingDone": {
+        "kind": "SideEffect",
+        "intent": "Analytics event emitted when onboarding completes.",
+        "refs": {}
+      },
+      "fx:analytics/PrefSaved": {
+        "kind": "SideEffect",
+        "intent": "Analytics event emitted on each saved preference step.",
+        "refs": {}
+      },
+      "fx:push/RegisterToken": {
+        "kind": "SideEffect",
+        "intent": "Register the device push token after notification permission is granted.",
+        "refs": {}
+      },
+      "op:auth/SignIn": {
+        "kind": "BackendOp",
+        "intent": "Backend sign-in operation for returning users.",
+        "refs": {}
+      },
+      "op:auth/SignUp": {
+        "kind": "BackendOp",
+        "intent": "Backend account-creation operation (email/password).",
+        "refs": {}
+      },
       "store:auth/SessionStore": {
         "kind": "StateStore",
         "intent": "Authenticated user session (token, account id).",
@@ -345,47 +375,17 @@
         "kind": "StateStore",
         "intent": "User profile assembled from the collected onboarding preferences.",
         "refs": {}
-      },
-      "op:auth/SignUp": {
-        "kind": "BackendOp",
-        "intent": "Backend account-creation operation (email/password).",
-        "refs": {}
-      },
-      "op:auth/SignIn": {
-        "kind": "BackendOp",
-        "intent": "Backend sign-in operation for returning users.",
-        "refs": {}
-      },
-      "fx:analytics/AccountCreated": {
-        "kind": "SideEffect",
-        "intent": "Analytics event when an account is created.",
-        "refs": {}
-      },
-      "fx:analytics/PrefSaved": {
-        "kind": "SideEffect",
-        "intent": "Analytics event emitted on each saved preference step.",
-        "refs": {}
-      },
-      "fx:analytics/OnboardingDone": {
-        "kind": "SideEffect",
-        "intent": "Analytics event emitted when onboarding completes.",
-        "refs": {}
-      },
-      "fx:push/RegisterToken": {
-        "kind": "SideEffect",
-        "intent": "Register the device push token after notification permission is granted.",
-        "refs": {}
       }
     },
     "policy": {
       "policy:privacy/Consent": {
         "kind": "Policy",
         "intent": "Terms & privacy acknowledgement must be accepted before account creation. DEFERRED-status posture gate, not a runtime predicate.",
+        "refs": {},
         "attrs": {
-          "status": "deferred",
-          "gate": "binary"
-        },
-        "refs": {}
+          "gate": "binary",
+          "status": "deferred"
+        }
       }
     },
     "boundary": {
@@ -394,8 +394,8 @@
         "intent": "Social-auth OAuth redirect (Apple / Google): control leaves the app; returns keyed on the outcome.",
         "refs": {},
         "attrs": {
-          "surfaceKind": "oauthRedirect",
-          "outcome": "success"
+          "outcome": "success",
+          "surfaceKind": "oauthRedirect"
         }
       },
       "x-ext:perm/NotificationsPrompt": {
@@ -412,114 +412,6 @@
   },
   "edges": [
     {
-      "type": "renders",
-      "from": "screen:onb/Welcome",
-      "to": "comp:onb/Carousel",
-      "repeat": false
-    },
-    {
-      "type": "renders",
-      "from": "screen:auth/SignUp",
-      "to": "comp:auth/SignUpForm",
-      "repeat": false
-    },
-    {
-      "type": "renders",
-      "from": "screen:auth/SignUp",
-      "to": "comp:auth/SocialButtons",
-      "repeat": false
-    },
-    {
-      "type": "renders",
-      "from": "screen:auth/SignIn",
-      "to": "comp:auth/SocialButtons",
-      "repeat": false
-    },
-    {
-      "type": "renders",
-      "from": "screen:pref/Goal",
-      "to": "comp:pref/GoalList",
-      "repeat": false
-    },
-    {
-      "type": "handles",
-      "from": "screen:onb/Welcome",
-      "to": "trig:onb/GetStartedTap",
-      "event": "tap"
-    },
-    {
-      "type": "handles",
-      "from": "screen:onb/Welcome",
-      "to": "trig:onb/HaveAccountTap",
-      "event": "tap"
-    },
-    {
-      "type": "handles",
-      "from": "screen:auth/Choice",
-      "to": "trig:auth/CreateAccountTap",
-      "event": "tap"
-    },
-    {
-      "type": "handles",
-      "from": "screen:auth/Choice",
-      "to": "trig:auth/LogInTap",
-      "event": "tap"
-    },
-    {
-      "type": "handles",
-      "from": "screen:auth/SignUp",
-      "to": "trig:auth/SignUpFieldChange",
-      "event": "change"
-    },
-    {
-      "type": "handles",
-      "from": "screen:auth/SignUp",
-      "to": "trig:auth/SignUpSubmitTap",
-      "event": "submit"
-    },
-    {
-      "type": "handles",
-      "from": "screen:auth/SignUp",
-      "to": "trig:auth/SocialTap",
-      "event": "tap"
-    },
-    {
-      "type": "handles",
-      "from": "screen:auth/SignIn",
-      "to": "trig:auth/SignInSubmitTap",
-      "event": "submit"
-    },
-    {
-      "type": "handles",
-      "from": "screen:perm/NotificationPriming",
-      "to": "trig:perm/EnableTap",
-      "event": "tap"
-    },
-    {
-      "type": "handles",
-      "from": "screen:perm/NotificationPriming",
-      "to": "trig:perm/SkipTap",
-      "event": "tap"
-    },
-    {
-      "type": "handles",
-      "from": "screen:pref/Goal",
-      "to": "trig:pref/GoalSelectTap",
-      "event": "tap"
-    },
-    {
-      "type": "handles",
-      "from": "screen:pref/Reminder",
-      "to": "trig:pref/ReminderSaveTap",
-      "event": "tap"
-    },
-    {
-      "type": "handles",
-      "from": "screen:onb/Done",
-      "to": "trig:onb/FinishTap",
-      "event": "tap"
-    },
-    {
       "type": "binds",
       "from": "comp:auth/SignUpForm",
       "to": "vs:auth/SignUpForm"
@@ -531,25 +423,58 @@
     },
     {
       "type": "binds",
-      "from": "screen:pref/Reminder",
-      "to": "store:pref/PrefStore"
-    },
-    {
-      "type": "binds",
       "from": "screen:onb/Done",
       "to": "store:profile/ProfileStore"
     },
     {
-      "type": "fires",
-      "from": "trig:onb/GetStartedTap",
-      "to": "act:onb/GoToChoice",
-      "seq": 0
+      "type": "binds",
+      "from": "screen:pref/Reminder",
+      "to": "store:pref/PrefStore"
     },
     {
-      "type": "fires",
-      "from": "trig:onb/HaveAccountTap",
-      "to": "act:onb/GoToSignIn",
-      "seq": 0
+      "type": "derivesFrom",
+      "from": "assert:auth/SignUpValid",
+      "to": "vs:auth/SignUpForm"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:perm/NotPrompted",
+      "to": "store:pref/PrefStore"
+    },
+    {
+      "type": "derivesFrom",
+      "from": "assert:pref/GoalChosen",
+      "to": "store:pref/PrefStore"
+    },
+    {
+      "type": "emits",
+      "from": "act:auth/SubmitSignUp",
+      "to": "fx:analytics/AccountCreated",
+      "effect": "analytics"
+    },
+    {
+      "type": "emits",
+      "from": "act:onb/FinishOnboarding",
+      "to": "fx:analytics/OnboardingDone",
+      "effect": "analytics"
+    },
+    {
+      "type": "emits",
+      "from": "act:pref/SaveGoalAndAdvance",
+      "to": "fx:analytics/PrefSaved",
+      "effect": "analytics"
+    },
+    {
+      "type": "emits",
+      "from": "x-ext:auth/OAuthRedirect",
+      "to": "fx:analytics/AccountCreated",
+      "effect": "analytics"
+    },
+    {
+      "type": "emits",
+      "from": "x-ext:perm/NotificationsPrompt",
+      "to": "fx:push/RegisterToken",
+      "effect": "push"
     },
     {
       "type": "fires",
@@ -565,10 +490,16 @@
     },
     {
       "type": "fires",
+      "from": "trig:auth/SignInSubmitTap",
+      "to": "act:auth/SubmitSignIn",
+      "seq": 0
+    },
+    {
+      "type": "fires",
       "from": "trig:auth/SignUpFieldChange",
       "to": "act:auth/UpdateSignUpField",
-      "seq": 0,
-      "scopedBy": "field.key"
+      "scopedBy": "field.key",
+      "seq": 0
     },
     {
       "type": "fires",
@@ -580,13 +511,25 @@
       "type": "fires",
       "from": "trig:auth/SocialTap",
       "to": "act:auth/PresentSocial",
-      "seq": 0,
-      "scopedBy": "provider.id"
+      "scopedBy": "provider.id",
+      "seq": 0
     },
     {
       "type": "fires",
-      "from": "trig:auth/SignInSubmitTap",
-      "to": "act:auth/SubmitSignIn",
+      "from": "trig:onb/FinishTap",
+      "to": "act:onb/FinishOnboarding",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:onb/GetStartedTap",
+      "to": "act:onb/GoToChoice",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:onb/HaveAccountTap",
+      "to": "act:onb/GoToSignIn",
       "seq": 0
     },
     {
@@ -614,10 +557,155 @@
       "seq": 0
     },
     {
-      "type": "fires",
-      "from": "trig:onb/FinishTap",
-      "to": "act:onb/FinishOnboarding",
-      "seq": 0
+      "type": "guardedBy",
+      "from": "act:auth/SubmitSignUp",
+      "to": "assert:auth/SignUpValid",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:auth/SubmitSignUp",
+      "to": "policy:privacy/Consent",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:perm/RequestNotifications",
+      "to": "assert:perm/NotPrompted",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:pref/SaveGoalAndAdvance",
+      "to": "assert:pref/GoalChosen",
+      "polarity": "require"
+    },
+    {
+      "type": "handles",
+      "from": "screen:auth/Choice",
+      "to": "trig:auth/CreateAccountTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:auth/Choice",
+      "to": "trig:auth/LogInTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:auth/SignIn",
+      "to": "trig:auth/SignInSubmitTap",
+      "event": "submit"
+    },
+    {
+      "type": "handles",
+      "from": "screen:auth/SignUp",
+      "to": "trig:auth/SignUpFieldChange",
+      "event": "change"
+    },
+    {
+      "type": "handles",
+      "from": "screen:auth/SignUp",
+      "to": "trig:auth/SignUpSubmitTap",
+      "event": "submit"
+    },
+    {
+      "type": "handles",
+      "from": "screen:auth/SignUp",
+      "to": "trig:auth/SocialTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:onb/Done",
+      "to": "trig:onb/FinishTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:onb/Welcome",
+      "to": "trig:onb/GetStartedTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:onb/Welcome",
+      "to": "trig:onb/HaveAccountTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:perm/NotificationPriming",
+      "to": "trig:perm/EnableTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:perm/NotificationPriming",
+      "to": "trig:perm/SkipTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:pref/Goal",
+      "to": "trig:pref/GoalSelectTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:pref/Reminder",
+      "to": "trig:pref/ReminderSaveTap",
+      "event": "tap"
+    },
+    {
+      "type": "invokes",
+      "from": "act:auth/SubmitSignIn",
+      "to": "op:auth/SignIn",
+      "awaits": true
+    },
+    {
+      "type": "invokes",
+      "from": "act:auth/SubmitSignUp",
+      "to": "op:auth/SignUp",
+      "awaits": true,
+      "idempotent": false
+    },
+    {
+      "type": "navigates",
+      "from": "act:auth/GoToSignIn",
+      "to": "screen:auth/SignIn",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:auth/GoToSignUp",
+      "to": "screen:auth/SignUp",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:auth/PresentSocial",
+      "to": "x-ext:auth/OAuthRedirect",
+      "present": "sheet"
+    },
+    {
+      "type": "navigates",
+      "from": "act:auth/SubmitSignIn",
+      "to": "screen:perm/NotificationPriming",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:auth/SubmitSignUp",
+      "to": "screen:perm/NotificationPriming",
+      "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:onb/FinishOnboarding",
+      "to": "screen:home/Today",
+      "present": "replace-root"
     },
     {
       "type": "navigates",
@@ -633,15 +721,57 @@
     },
     {
       "type": "navigates",
-      "from": "act:auth/GoToSignUp",
-      "to": "screen:auth/SignUp",
+      "from": "act:perm/RequestNotifications",
+      "to": "x-ext:perm/NotificationsPrompt",
+      "present": "sheet"
+    },
+    {
+      "type": "navigates",
+      "from": "act:perm/SkipNotifications",
+      "to": "screen:pref/Goal",
       "present": "push"
     },
     {
       "type": "navigates",
-      "from": "act:auth/GoToSignIn",
-      "to": "screen:auth/SignIn",
+      "from": "act:pref/SaveGoalAndAdvance",
+      "to": "screen:pref/Reminder",
       "present": "push"
+    },
+    {
+      "type": "navigates",
+      "from": "act:pref/SaveReminderAndAdvance",
+      "to": "screen:onb/Done",
+      "present": "push"
+    },
+    {
+      "type": "renders",
+      "from": "screen:auth/SignIn",
+      "to": "comp:auth/SocialButtons",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:auth/SignUp",
+      "to": "comp:auth/SignUpForm",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:auth/SignUp",
+      "to": "comp:auth/SocialButtons",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:onb/Welcome",
+      "to": "comp:onb/Carousel",
+      "repeat": false
+    },
+    {
+      "type": "renders",
+      "from": "screen:pref/Goal",
+      "to": "comp:pref/GoalList",
+      "repeat": false
     },
     {
       "type": "setsViewState",
@@ -650,72 +780,33 @@
     },
     {
       "type": "writes",
-      "from": "act:auth/SubmitSignUp",
+      "from": "act:auth/SubmitSignIn",
       "to": "store:auth/SessionStore",
       "mode": "set"
-    },
-    {
-      "type": "invokes",
-      "from": "act:auth/SubmitSignUp",
-      "to": "op:auth/SignUp",
-      "awaits": true,
-      "idempotent": false
-    },
-    {
-      "type": "emits",
-      "from": "act:auth/SubmitSignUp",
-      "to": "fx:analytics/AccountCreated",
-      "effect": "analytics"
-    },
-    {
-      "type": "navigates",
-      "from": "act:auth/SubmitSignUp",
-      "to": "screen:perm/NotificationPriming",
-      "present": "push"
-    },
-    {
-      "type": "guardedBy",
-      "from": "act:auth/SubmitSignUp",
-      "to": "assert:auth/SignUpValid",
-      "polarity": "require"
-    },
-    {
-      "type": "guardedBy",
-      "from": "act:auth/SubmitSignUp",
-      "to": "policy:privacy/Consent",
-      "polarity": "require"
-    },
-    {
-      "type": "navigates",
-      "from": "act:auth/PresentSocial",
-      "to": "x-ext:auth/OAuthRedirect",
-      "present": "sheet"
     },
     {
       "type": "writes",
-      "from": "act:auth/SubmitSignIn",
+      "from": "act:auth/SubmitSignUp",
       "to": "store:auth/SessionStore",
       "mode": "set"
     },
     {
-      "type": "invokes",
-      "from": "act:auth/SubmitSignIn",
-      "to": "op:auth/SignIn",
-      "awaits": true
+      "type": "writes",
+      "from": "act:onb/FinishOnboarding",
+      "to": "store:profile/ProfileStore",
+      "mode": "set"
     },
     {
-      "type": "navigates",
-      "from": "act:auth/SubmitSignIn",
-      "to": "screen:perm/NotificationPriming",
-      "present": "push"
+      "type": "writes",
+      "from": "act:pref/SaveGoalAndAdvance",
+      "to": "store:pref/PrefStore",
+      "mode": "set"
     },
     {
-      "type": "x-ext:returnsTo",
-      "from": "x-ext:auth/OAuthRedirect",
-      "to": "screen:perm/NotificationPriming",
-      "present": "replace-root",
-      "when": "success",
-      "writesBack": "SessionStore.token"
+      "type": "writes",
+      "from": "act:pref/SaveReminderAndAdvance",
+      "to": "store:pref/PrefStore",
+      "mode": "set"
     },
     {
       "type": "x-ext:returnsTo",
@@ -732,28 +823,12 @@
       "when": "failed"
     },
     {
-      "type": "emits",
+      "type": "x-ext:returnsTo",
       "from": "x-ext:auth/OAuthRedirect",
-      "to": "fx:analytics/AccountCreated",
-      "effect": "analytics"
-    },
-    {
-      "type": "navigates",
-      "from": "act:perm/RequestNotifications",
-      "to": "x-ext:perm/NotificationsPrompt",
-      "present": "sheet"
-    },
-    {
-      "type": "guardedBy",
-      "from": "act:perm/RequestNotifications",
-      "to": "assert:perm/NotPrompted",
-      "polarity": "require"
-    },
-    {
-      "type": "navigates",
-      "from": "act:perm/SkipNotifications",
-      "to": "screen:pref/Goal",
-      "present": "push"
+      "to": "screen:perm/NotificationPriming",
+      "present": "replace-root",
+      "when": "success",
+      "writesBack": "SessionStore.token"
     },
     {
       "type": "x-ext:returnsTo",
@@ -776,81 +851,6 @@
       "to": "screen:pref/Goal",
       "present": "push",
       "when": "limited"
-    },
-    {
-      "type": "emits",
-      "from": "x-ext:perm/NotificationsPrompt",
-      "to": "fx:push/RegisterToken",
-      "effect": "push"
-    },
-    {
-      "type": "writes",
-      "from": "act:pref/SaveGoalAndAdvance",
-      "to": "store:pref/PrefStore",
-      "mode": "set"
-    },
-    {
-      "type": "emits",
-      "from": "act:pref/SaveGoalAndAdvance",
-      "to": "fx:analytics/PrefSaved",
-      "effect": "analytics"
-    },
-    {
-      "type": "navigates",
-      "from": "act:pref/SaveGoalAndAdvance",
-      "to": "screen:pref/Reminder",
-      "present": "push"
-    },
-    {
-      "type": "guardedBy",
-      "from": "act:pref/SaveGoalAndAdvance",
-      "to": "assert:pref/GoalChosen",
-      "polarity": "require"
-    },
-    {
-      "type": "writes",
-      "from": "act:pref/SaveReminderAndAdvance",
-      "to": "store:pref/PrefStore",
-      "mode": "set"
-    },
-    {
-      "type": "navigates",
-      "from": "act:pref/SaveReminderAndAdvance",
-      "to": "screen:onb/Done",
-      "present": "push"
-    },
-    {
-      "type": "writes",
-      "from": "act:onb/FinishOnboarding",
-      "to": "store:profile/ProfileStore",
-      "mode": "set"
-    },
-    {
-      "type": "emits",
-      "from": "act:onb/FinishOnboarding",
-      "to": "fx:analytics/OnboardingDone",
-      "effect": "analytics"
-    },
-    {
-      "type": "navigates",
-      "from": "act:onb/FinishOnboarding",
-      "to": "screen:home/Today",
-      "present": "replace-root"
-    },
-    {
-      "type": "derivesFrom",
-      "from": "assert:auth/SignUpValid",
-      "to": "vs:auth/SignUpForm"
-    },
-    {
-      "type": "derivesFrom",
-      "from": "assert:perm/NotPrompted",
-      "to": "store:pref/PrefStore"
-    },
-    {
-      "type": "derivesFrom",
-      "from": "assert:pref/GoalChosen",
-      "to": "store:pref/PrefStore"
     }
   ]
 }

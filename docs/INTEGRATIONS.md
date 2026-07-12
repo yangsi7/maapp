@@ -9,10 +9,22 @@ the graph lives at `$MAAPP_GRAPH` if set (absolute, or relative to the repo root
 Install the CLI, then let `maapp init` wire the repo:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/yangsi7/maapp/main/install.sh | sh   # activates once the first release is published
-# until then: git clone https://github.com/yangsi7/maapp && cd maapp && ./install.sh
+curl -fsSL https://raw.githubusercontent.com/yangsi7/maapp/main/install.sh | sh
 maapp init --dry-run   # preview: prints "would write / would update", touches nothing
 maapp init
+```
+
+**Agent note.** Some harnesses block piping a remote script to `sh`. The manual fallback:
+download the release tarball for your platform (asset names follow
+`maapp-<target-triple>.tar.xz`, e.g. `maapp-aarch64-apple-darwin.tar.xz`, plus a
+`.zip` for `x86_64-pc-windows-msvc`), verify it against the matching `.sha256` next to
+it, extract, and put the `maapp` binary on `PATH` (e.g. `~/.local/bin`):
+
+```sh
+curl -LsSfO https://github.com/yangsi7/maapp/releases/latest/download/maapp-aarch64-apple-darwin.tar.xz
+curl -LsSfO https://github.com/yangsi7/maapp/releases/latest/download/maapp-aarch64-apple-darwin.tar.xz.sha256
+shasum -a 256 -c maapp-aarch64-apple-darwin.tar.xz.sha256 && tar -xf maapp-aarch64-apple-darwin.tar.xz
+install -m 755 maapp-aarch64-apple-darwin/maapp ~/.local/bin/maapp
 ```
 
 `maapp init` writes, in fixed order:
@@ -129,6 +141,33 @@ Two pieces, both plain files:
    harness has a post-edit hook mechanism, port that script (plain Node, no dependencies);
    if not, rely on the routing block's maintenance loop and add the CI gate
    (`package/ci/maapp-gate.yml`) as the authoritative backstop.
+
+## Anchoring
+
+A node with no `refs.source` is invisible to `check-drift`: the check can only compare a
+graph's claims against the repo for nodes it knows which file backs them, so an
+unanchored graph reports nothing (no stale candidates, no anchor rot) and that silence is
+noise, not a clean bill of health. Anchor a node when you add or touch it:
+
+```sh
+maapp add-node store:chat/DraftStore examples/chat.json \
+    --kind StateStore --intent "Unsent drafts per conversation" \
+    --ref source=src/stores/drafts.ts
+
+maapp update-node screen:checkout/Payment examples/checkout.json \
+    --ref source=app/checkout/payment/page.tsx
+```
+
+`--ref k=v` is repeatable and available on both `add-node` and `update-node`; `source` is
+the conventional key `check-drift` reads, but `refs` is an open map, so an app can also
+carry `test`, `story`, or any other pointer it finds useful.
+
+**Incremental anchoring.** Do not stop and anchor every node in one pass; anchor
+`refs.source` on the nodes a change actually touches, as part of that change, then
+`maapp stamp` re-pins `meta.provenance.asOf` to the anchoring commit. A graph anchors
+itself over time this way, one touched slice at a time, and `check-drift`'s signal only
+gets sharper as coverage grows: more anchored nodes means more of the repo's real churn
+is checked against the graph's claims, instead of passing through as unmapped.
 
 ## The living loop (all harnesses)
 

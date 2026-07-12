@@ -14,25 +14,7 @@ expression: rs
     {
       "type": "handles",
       "from": "screen:chat/ConversationList",
-      "to": "trig:list/RowTap",
-      "event": "tap"
-    },
-    {
-      "type": "handles",
-      "from": "screen:chat/ConversationList",
       "to": "trig:list/ComposeTap",
-      "event": "tap"
-    },
-    {
-      "type": "renders",
-      "from": "screen:chat/ConversationList",
-      "to": "comp:chat/ConversationRow",
-      "repeat": true
-    },
-    {
-      "type": "handles",
-      "from": "screen:chat/ConversationList",
-      "to": "trig:list/SearchTap",
       "event": "tap"
     },
     {
@@ -44,8 +26,26 @@ expression: rs
     {
       "type": "handles",
       "from": "screen:chat/ConversationList",
+      "to": "trig:list/RowTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/ConversationList",
+      "to": "trig:list/SearchTap",
+      "event": "tap"
+    },
+    {
+      "type": "handles",
+      "from": "screen:chat/ConversationList",
       "to": "trig:list/SettingsTap",
       "event": "tap"
+    },
+    {
+      "type": "renders",
+      "from": "screen:chat/ConversationList",
+      "to": "comp:chat/ConversationRow",
+      "repeat": true
     }
   ],
   "in_edges": []

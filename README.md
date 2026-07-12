@@ -1,6 +1,5 @@
 # maapp
 
-<!-- The crates.io badge activates after the first crates.io publish. -->
 [![CI](https://github.com/yangsi7/maapp/actions/workflows/ci.yml/badge.svg)](https://github.com/yangsi7/maapp/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/maapp.svg)](https://crates.io/crates/maapp)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -10,18 +9,14 @@ knowledge graph an AI coding agent queries instead of reading source or prose.**
 
 ![maapp validates a 65-node checkout graph, queries the blast radius of its checkout store, and renders the backend pull-spine view, all from one JSON file](demo/demo.gif)
 
-> Early release. The install one-liners activate once the first tagged release and the
-> crates.io publish land; until then, build from source. MIT licensed.
+> Early release. MIT licensed.
 
 ## Quickstart
 
 Install (no sudo, lands in `~/.local/bin`):
 
 ```sh
-# activates once the first tagged release is published
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/yangsi7/maapp/releases/latest/download/maapp-installer.sh | sh
-# until then: build from source
-git clone https://github.com/yangsi7/maapp && cd maapp && ./install.sh
 ```
 
 Validate a graph. The repo ships 8 example app graphs under [`examples/`](examples/);
@@ -205,16 +200,17 @@ back to a source build:
 curl -fsSL https://raw.githubusercontent.com/yangsi7/maapp/main/install.sh | sh
 ```
 
-**2. cargo binstall** (after the crates.io publish):
+**2. cargo binstall** (fetches the prebuilt release binary instead of compiling):
 
 ```sh
+cargo install cargo-binstall   # one-time, if you don't already have it
 cargo binstall maapp
 ```
 
 Release assets are named `maapp-<target-triple>.tar.xz`, matching binstall's defaults,
 so no extra metadata is needed.
 
-**3. cargo install** (after the crates.io publish):
+**3. cargo install** (compiles from the published crate):
 
 ```sh
 cargo install maapp
@@ -238,10 +234,30 @@ ships with a `.sha256` and a unified `sha256.sum`.
   sample size, reproduce command and limitations per result
 - [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md): wiring maapp into Claude Code, Cursor,
   Codex / AGENTS.md agents, and any other harness
+- [docs/EDGE-VOCABULARY.md](docs/EDGE-VOCABULARY.md): every edge type, its required
+  from/to node kinds and attrs, one example line each
 - [CONTRIBUTING.md](CONTRIBUTING.md): dev setup and the 5-command verification gate
   (fmt, clippy -D warnings, nextest + doc tests, cargo deny, wasm32 build)
 - [examples/](examples/): 8 example app graphs (chat, checkout, dashboard, maps, media,
   onboarding-variant, settings-account, wizard); all validate clean
+
+Run `maapp schema` for the canonical, machine-readable vocabulary: every node kind, edge
+type, and required attribute, generated from the engine's own tables (never hand-maintained,
+so it can't drift from what `maapp validate` enforces).
+
+Node kinds, by layer, with the slug prefix convention the shipped `examples/` use (a
+convention, not a schema rule; run `maapp schema` for the authoritative kind list):
+
+| Layer | Kinds | Slug prefix |
+|---|---|---|
+| surface | Screen, Component, NavContainer | `screen:`, `comp:`, `nav:` |
+| logic | Trigger, Assertion, ViewState, EffectAction / MutationAction / NavAction / QueryAction / ViewStateAction | `trig:`, `assert:`, `vs:`, `act:` |
+| policy | Policy | `policy:` |
+| substrate | StateStore, BackendOp, DataSource, PipelineStage, SideEffect | `store:`, `op:`, `ds:`, `stage:`, `fx:` |
+
+Edge attrs (`mode`, `awaits`, `event`, `present`, `artifact`, and friends) are flat
+top-level keys on the edge object, not nested; see
+[docs/EDGE-VOCABULARY.md](docs/EDGE-VOCABULARY.md) for the full set per edge type.
 
 ## License
 

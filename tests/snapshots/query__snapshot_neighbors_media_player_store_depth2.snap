@@ -68,6 +68,11 @@ expression: rs
     },
     {
       "type": "binds",
+      "from": "screen:player/Lyrics",
+      "to": "store:PlayerStore"
+    },
+    {
+      "type": "binds",
       "from": "screen:player/NowPlaying",
       "to": "store:PlayerStore"
     },
@@ -78,13 +83,25 @@ expression: rs
     },
     {
       "type": "derivesFrom",
-      "from": "assert:player/ScrubValid",
+      "from": "assert:player/HasCurrentTrack",
       "to": "store:PlayerStore"
     },
     {
       "type": "derivesFrom",
-      "from": "assert:player/HasCurrentTrack",
+      "from": "assert:player/ScrubValid",
       "to": "store:PlayerStore"
+    },
+    {
+      "type": "produces",
+      "from": "op:player/ResolveStream",
+      "to": "store:PlayerStore",
+      "artifact": "streamUrl+metadata"
+    },
+    {
+      "type": "reads",
+      "from": "op:player/Scrobble",
+      "to": "store:PlayerStore",
+      "cachePolicy": "fresh"
     },
     {
       "type": "writes",
@@ -100,14 +117,7 @@ expression: rs
     },
     {
       "type": "writes",
-      "from": "act:player/TogglePlayPause",
-      "to": "store:PlayerStore",
-      "mode": "toggle",
-      "optimistic": true
-    },
-    {
-      "type": "writes",
-      "from": "act:player/SkipNext",
+      "from": "act:player/AdvancePosition",
       "to": "store:PlayerStore",
       "mode": "set"
     },
@@ -119,32 +129,22 @@ expression: rs
     },
     {
       "type": "writes",
-      "from": "act:player/AdvancePosition",
+      "from": "act:player/SkipNext",
       "to": "store:PlayerStore",
       "mode": "set"
     },
     {
-      "type": "produces",
-      "from": "op:player/ResolveStream",
+      "type": "writes",
+      "from": "act:player/TogglePlayPause",
       "to": "store:PlayerStore",
-      "artifact": "streamUrl+metadata"
-    },
-    {
-      "type": "reads",
-      "from": "op:player/Scrobble",
-      "to": "store:PlayerStore",
-      "cachePolicy": "fresh"
+      "mode": "toggle",
+      "optimistic": true
     },
     {
       "type": "x-behavior:reconciles",
       "from": "op:player/ResolveStream",
       "to": "store:PlayerStore",
       "onFailure": "rollback"
-    },
-    {
-      "type": "binds",
-      "from": "screen:player/Lyrics",
-      "to": "store:PlayerStore"
     },
     {
       "type": "handles",
@@ -165,6 +165,11 @@ expression: rs
       "repeat": false
     },
     {
+      "type": "binds",
+      "from": "comp:player/SeekBar",
+      "to": "vs:player/Scrub"
+    },
+    {
       "type": "handles",
       "from": "comp:player/SeekBar",
       "to": "trig:player/SeekDrag",
@@ -177,11 +182,6 @@ expression: rs
       "event": "dragDismiss"
     },
     {
-      "type": "binds",
-      "from": "comp:player/SeekBar",
-      "to": "vs:player/Scrub"
-    },
-    {
       "type": "renders",
       "from": "screen:player/NowPlaying",
       "to": "comp:player/SeekBar",
@@ -190,13 +190,13 @@ expression: rs
     {
       "type": "handles",
       "from": "comp:player/Transport",
-      "to": "trig:player/PlayPauseTap",
+      "to": "trig:player/NextTap",
       "event": "tap"
     },
     {
       "type": "handles",
       "from": "comp:player/Transport",
-      "to": "trig:player/NextTap",
+      "to": "trig:player/PlayPauseTap",
       "event": "tap"
     },
     {
@@ -204,6 +204,23 @@ expression: rs
       "from": "screen:player/NowPlaying",
       "to": "comp:player/Transport",
       "repeat": false
+    },
+    {
+      "type": "navigates",
+      "from": "act:player/OpenLyrics",
+      "to": "screen:player/Lyrics",
+      "present": "sheet"
+    },
+    {
+      "type": "binds",
+      "from": "screen:player/NowPlaying",
+      "to": "vs:player/ArtworkLoad"
+    },
+    {
+      "type": "handles",
+      "from": "screen:player/NowPlaying",
+      "to": "trig:player/LyricsTap",
+      "event": "tap"
     },
     {
       "type": "handles",
@@ -216,17 +233,6 @@ expression: rs
       "from": "screen:player/NowPlaying",
       "to": "trig:player/Tick",
       "event": "timer"
-    },
-    {
-      "type": "binds",
-      "from": "screen:player/NowPlaying",
-      "to": "vs:player/ArtworkLoad"
-    },
-    {
-      "type": "handles",
-      "from": "screen:player/NowPlaying",
-      "to": "trig:player/LyricsTap",
-      "event": "tap"
     },
     {
       "type": "navigates",
@@ -247,21 +253,33 @@ expression: rs
       "present": "fullScreenCover"
     },
     {
+      "type": "binds",
+      "from": "screen:player/Queue",
+      "to": "store:QueueStore"
+    },
+    {
       "type": "renders",
       "from": "screen:player/Queue",
       "to": "comp:queue/QueueRow",
       "repeat": true
     },
     {
-      "type": "binds",
-      "from": "screen:player/Queue",
-      "to": "store:QueueStore"
-    },
-    {
       "type": "navigates",
       "from": "act:player/OpenQueue",
       "to": "screen:player/Queue",
       "present": "sheet"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:player/SkipNext",
+      "to": "assert:player/HasCurrentTrack",
+      "polarity": "require"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:player/TogglePlayPause",
+      "to": "assert:player/HasCurrentTrack",
+      "polarity": "require"
     },
     {
       "type": "derivesFrom",
@@ -276,21 +294,15 @@ expression: rs
     },
     {
       "type": "guardedBy",
-      "from": "act:player/TogglePlayPause",
-      "to": "assert:player/HasCurrentTrack",
+      "from": "op:player/ResolveStream",
+      "to": "assert:player/TrackAvailable",
       "polarity": "require"
     },
     {
       "type": "guardedBy",
-      "from": "act:player/SkipNext",
-      "to": "assert:player/HasCurrentTrack",
+      "from": "op:player/ResolveStream",
+      "to": "policy:player/AudioFocus",
       "polarity": "require"
-    },
-    {
-      "type": "writes",
-      "from": "act:detail/PlayPlaylist",
-      "to": "store:QueueStore",
-      "mode": "set"
     },
     {
       "type": "invokes",
@@ -299,10 +311,34 @@ expression: rs
       "awaits": true
     },
     {
+      "type": "invokes",
+      "from": "act:detail/PlayTrack",
+      "to": "op:player/ResolveStream",
+      "awaits": true
+    },
+    {
+      "type": "invokes",
+      "from": "act:player/SkipNext",
+      "to": "op:player/ResolveStream",
+      "awaits": true
+    },
+    {
+      "type": "guardedBy",
+      "from": "op:player/Scrobble",
+      "to": "policy:account/AuthedSession",
+      "polarity": "require"
+    },
+    {
       "type": "emits",
       "from": "act:detail/PlayPlaylist",
       "to": "fx:analytics/PlayStarted",
       "effect": "analytics"
+    },
+    {
+      "type": "writes",
+      "from": "act:detail/PlayPlaylist",
+      "to": "store:QueueStore",
+      "mode": "set"
     },
     {
       "type": "fires",
@@ -324,16 +360,46 @@ expression: rs
       "mode": "set"
     },
     {
-      "type": "invokes",
-      "from": "act:detail/PlayTrack",
-      "to": "op:player/ResolveStream",
-      "awaits": true
-    },
-    {
       "type": "fires",
       "from": "trig:detail/TrackTap",
       "to": "act:detail/PlayTrack",
       "scopedBy": "row.trackId",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:player/Tick",
+      "to": "act:player/AdvancePosition",
+      "seq": 0
+    },
+    {
+      "type": "fires",
+      "from": "trig:player/SeekRelease",
+      "to": "act:player/CommitSeek",
+      "seq": 0
+    },
+    {
+      "type": "emits",
+      "from": "act:player/SkipNext",
+      "to": "fx:haptic/Transport",
+      "effect": "haptic"
+    },
+    {
+      "type": "guardedBy",
+      "from": "act:player/SkipNext",
+      "to": "assert:queue/HasNext",
+      "polarity": "require"
+    },
+    {
+      "type": "writes",
+      "from": "act:player/SkipNext",
+      "to": "store:QueueStore",
+      "mode": "set"
+    },
+    {
+      "type": "fires",
+      "from": "trig:player/NextTap",
+      "to": "act:player/SkipNext",
       "seq": 0
     },
     {
@@ -353,72 +419,6 @@ expression: rs
       "from": "trig:player/PlayPauseTap",
       "to": "act:player/TogglePlayPause",
       "seq": 0
-    },
-    {
-      "type": "guardedBy",
-      "from": "act:player/SkipNext",
-      "to": "assert:queue/HasNext",
-      "polarity": "require"
-    },
-    {
-      "type": "writes",
-      "from": "act:player/SkipNext",
-      "to": "store:QueueStore",
-      "mode": "set"
-    },
-    {
-      "type": "invokes",
-      "from": "act:player/SkipNext",
-      "to": "op:player/ResolveStream",
-      "awaits": true
-    },
-    {
-      "type": "emits",
-      "from": "act:player/SkipNext",
-      "to": "fx:haptic/Transport",
-      "effect": "haptic"
-    },
-    {
-      "type": "fires",
-      "from": "trig:player/NextTap",
-      "to": "act:player/SkipNext",
-      "seq": 0
-    },
-    {
-      "type": "fires",
-      "from": "trig:player/SeekRelease",
-      "to": "act:player/CommitSeek",
-      "seq": 0
-    },
-    {
-      "type": "fires",
-      "from": "trig:player/Tick",
-      "to": "act:player/AdvancePosition",
-      "seq": 0
-    },
-    {
-      "type": "guardedBy",
-      "from": "op:player/ResolveStream",
-      "to": "policy:player/AudioFocus",
-      "polarity": "require"
-    },
-    {
-      "type": "guardedBy",
-      "from": "op:player/ResolveStream",
-      "to": "assert:player/TrackAvailable",
-      "polarity": "require"
-    },
-    {
-      "type": "guardedBy",
-      "from": "op:player/Scrobble",
-      "to": "policy:account/AuthedSession",
-      "polarity": "require"
-    },
-    {
-      "type": "navigates",
-      "from": "act:player/OpenLyrics",
-      "to": "screen:player/Lyrics",
-      "present": "sheet"
     }
   ]
 }
