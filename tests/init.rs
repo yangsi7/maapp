@@ -367,3 +367,239 @@ fn ci_gate_written_with_create_dirs_and_matches_asset() {
         "CI gate is the embedded asset, byte-identical"
     );
 }
+
+// ---------------------------------------------------------------------------
+// T1c — binary-aware `init --ci` (the gate is FAIL-CLOSED and dead until R1
+// pins release binaries; installing it silently would guarantee a red CI). The
+// loud stderr warning fires whenever `--ci` installs the still-TODO template.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn ci_flag_warns_the_gate_is_a_fail_closed_todo() {
+    let tmp = TempDir::new().unwrap();
+    let out = maapp()
+        .args(["init", "--ci", "--dir", tmp.path().to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "init --ci still exits 0");
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(
+        stderr.contains("FAIL-CLOSED"),
+        "loud fail-closed warning on --ci: {stderr}"
+    );
+    assert!(
+        stderr.to_lowercase().contains("todo"),
+        "warning names the unfilled TODO: {stderr}"
+    );
+    assert!(
+        stderr.contains("maapp-gate.yml"),
+        "warning names the gate file: {stderr}"
+    );
+    // The install-pointer is present so the adopter knows how to fix it.
+    assert!(
+        stderr.contains("INTEGRATIONS.md") || stderr.contains("release"),
+        "warning points at the fix: {stderr}"
+    );
+}
+
+#[test]
+fn no_ci_flag_no_gate_warning() {
+    let tmp = TempDir::new().unwrap();
+    let out = maapp()
+        .args(["init", "--dir", tmp.path().to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(
+        !stderr.contains("FAIL-CLOSED"),
+        "no gate warning when --ci is absent: {stderr}"
+    );
+}
+
+#[test]
+fn dry_run_ci_still_warns_the_gate_is_dead() {
+    let tmp = TempDir::new().unwrap();
+    std::fs::create_dir_all(tmp.path().join(".claude")).unwrap();
+    let out = maapp()
+        .args([
+            "init",
+            "--dry-run",
+            "--ci",
+            "--dir",
+            tmp.path().to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(
+        stderr.contains("FAIL-CLOSED"),
+        "dry-run --ci previews the dead-gate warning: {stderr}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// T1b — drift-nudge hook quiet-mode for unanchored graphs.
+//
+// The hook (package/claude/hooks/maapp-drift-nudge.js) is a Node script that
+// shells out to `maapp check-drift`. We drive it end-to-end with (a) a fake
+// `maapp` on PATH emitting a canned check-drift report and (b) a fixture graph,
+// asserting on the `additionalContext` it writes to stdout. Unix-only: the shim
+// is a chmod+x shell script — a documented platform limitation for this harness
+// (the hook itself runs under Claude Code, a unix-dominant environment). The
+// per-session dedupe marker dir is pinned via MAAPP_NUDGE_STATE_DIR so the test
+// is hermetic (no /tmp litter, no cross-run contamination).
+// ---------------------------------------------------------------------------
+
+#[cfg(unix)]
+mod hook_quiet_mode {
+    use super::TempDir;
+    use std::io::Write;
+    use std::path::Path;
+    use std::process::{Command as StdCommand, Stdio};
+
+    const HOOK: &str = "package/claude/hooks/maapp-drift-nudge.js";
+
+    fn node_available() -> bool {
+        StdCommand::new("node")
+            .arg("--version")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .is_ok_and(|s| s.success())
+    }
+
+    /// Write an executable fake `maapp` into `dir` that prints `stdout_json` and
+    /// exits with `code` for ANY args (the hook only calls `check-drift`).
+    fn fake_maapp(dir: &Path, stdout_json: &str, code: i32) {
+        use std::os::unix::fs::PermissionsExt;
+        let script = format!("#!/bin/sh\ncat <<'JSON'\n{stdout_json}\nJSON\nexit {code}\n");
+        let bin = dir.join("maapp");
+        std::fs::write(&bin, script).unwrap();
+        let mut perms = std::fs::metadata(&bin).unwrap().permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&bin, perms).unwrap();
+    }
+
+    fn write_graph(root: &Path, json: &str) {
+        std::fs::create_dir_all(root.join(".maapp")).unwrap();
+        std::fs::write(root.join(".maapp/graph.json"), json).unwrap();
+    }
+
+    fn jstr(s: &Path) -> String {
+        serde_json::to_string(&s.to_string_lossy()).unwrap()
+    }
+
+    /// Run the hook with `stdin_json`, a fake `maapp` prepended to PATH, and the
+    /// dedupe state dir pinned to `state_dir`. Asserts exit 0 (silent contract),
+    /// returns stdout.
+    fn run_hook(fakebin: &Path, state_dir: &Path, stdin_json: &str) -> String {
+        let orig_path = std::env::var("PATH").unwrap_or_default();
+        let mut child = StdCommand::new("node")
+            .arg(HOOK)
+            .env("PATH", format!("{}:{}", fakebin.display(), orig_path))
+            .env("MAAPP_NUDGE_STATE_DIR", state_dir)
+            .env_remove("MAAPP_GRAPH")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(stdin_json.as_bytes())
+            .unwrap();
+        let out = child.wait_with_output().unwrap();
+        assert!(
+            out.status.success(),
+            "hook must always exit 0 (silent contract); stderr: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8(out.stdout).unwrap()
+    }
+
+    #[test]
+    fn unanchored_graph_suppresses_unmapped_nudge_and_hints_once_per_session() {
+        assert!(
+            node_available(),
+            "node is required to run the drift-nudge hook fixture test"
+        );
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path();
+        // 0 anchors: the node carries `refs` but no `source`.
+        write_graph(
+            root,
+            r#"{"meta":{},"nodes":{"Home":{"kind":"Screen","refs":{}}}}"#,
+        );
+        let fakebin = root.join("fakebin");
+        std::fs::create_dir_all(&fakebin).unwrap();
+        // check-drift reports unmapped changes (exit 1 = drift) — the noise case.
+        fake_maapp(
+            &fakebin,
+            r#"{"unmapped_changes":["src/foo.rs","src/bar.rs"],"stale_candidates":[],"anchor_rot":[]}"#,
+            1,
+        );
+        let state = root.join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        let stdin = format!(
+            r#"{{"cwd":{root},"session_id":"sess-quiet","tool_input":{{"file_path":{fp}}}}}"#,
+            root = jstr(root),
+            fp = jstr(&root.join("src/foo.rs")),
+        );
+
+        // First edit: ONE quiet hint, and NO verbose per-edit nudge.
+        let out1 = run_hook(&fakebin, &state, &stdin);
+        assert!(
+            out1.contains("no refs.source anchors"),
+            "unanchored hint emitted: {out1}"
+        );
+        assert!(
+            !out1.contains("check-drift"),
+            "verbose per-edit nudge suppressed for an unanchored graph: {out1}"
+        );
+
+        // Second edit, same session: deduped -> fully silent.
+        let out2 = run_hook(&fakebin, &state, &stdin);
+        assert!(out2.is_empty(), "hint is once-per-session: {out2:?}");
+    }
+
+    #[test]
+    fn anchored_graph_still_nudges_on_stale_edit() {
+        assert!(
+            node_available(),
+            "node is required to run the drift-nudge hook fixture test"
+        );
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path();
+        // Anchored: the Home node anchors src/home.rs.
+        write_graph(
+            root,
+            r#"{"meta":{},"nodes":{"Home":{"kind":"Screen","refs":{"source":"src/home.rs"}}}}"#,
+        );
+        let fakebin = root.join("fakebin");
+        std::fs::create_dir_all(&fakebin).unwrap();
+        // Fresh (exit 0): the stale signal comes from the LOCAL anchor match on
+        // the edited file, exactly as before — quiet-mode must not touch this.
+        fake_maapp(&fakebin, "{}", 0);
+        let state = root.join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        let stdin = format!(
+            r#"{{"cwd":{root},"session_id":"sess-anchored","tool_input":{{"file_path":{fp}}}}}"#,
+            root = jstr(root),
+            fp = jstr(&root.join("src/home.rs")),
+        );
+
+        let out = run_hook(&fakebin, &state, &stdin);
+        assert!(
+            out.contains("may be stale after this edit") && out.contains("Home"),
+            "anchored stale nudge unchanged: {out}"
+        );
+        assert!(
+            !out.contains("no refs.source anchors"),
+            "no quiet hint for an anchored graph: {out}"
+        );
+    }
+}

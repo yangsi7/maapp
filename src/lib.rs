@@ -40,7 +40,7 @@ pub mod validate;
 pub use design::{DesignScore, run_design_lints};
 pub use diff::{DiffReport, diff_graphs};
 #[cfg(not(target_arch = "wasm32"))]
-pub use drift::{DriftReport, check_drift, stamp};
+pub use drift::{Baseline, DriftReport, check_drift, stamp, write_baseline};
 pub use error::EngineError;
 pub use export::{SliceSelector, canonical_doc, export_slice};
 pub use freshness::{FreshnessScore, run_freshness};

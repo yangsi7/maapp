@@ -47,8 +47,9 @@ Examples:
   maapp validate examples/checkout.json --json
 ")]
     Validate {
-        /// Path to the graph JSON file.
-        file: PathBuf,
+        /// Path to the graph JSON file (optional; resolves $MAAPP_GRAPH then
+        /// .maapp/graph.json when omitted).
+        file: Option<PathBuf>,
         /// Emit machine-readable findings as canonical JSON.
         #[arg(long)]
         json: bool,
@@ -84,18 +85,31 @@ Examples:
   # Override the base rev instead of reading meta.provenance.asOf
   maapp check-drift .maapp/graph.json --repo . --since HEAD~5
 
+  # Ratchet: tolerate today's unmapped debt, fail only on NEW unmapped/stale/rot
+  maapp check-drift .maapp/graph.json --repo . --write-baseline .maapp/drift-baseline.json
+  maapp check-drift .maapp/graph.json --repo . --baseline .maapp/drift-baseline.json
+
   # Machine-readable drift report (exit 0 fresh, 1 drift, 2 error)
   maapp check-drift .maapp/graph.json --repo . --json
 ")]
     CheckDrift {
-        /// Path to the graph JSON file.
-        file: PathBuf,
+        /// Path to the graph JSON file (optional; resolves $MAAPP_GRAPH then
+        /// .maapp/graph.json when omitted).
+        file: Option<PathBuf>,
         /// Path to the source repository the anchors name files in.
         #[arg(long)]
         repo: PathBuf,
         /// Base rev override (defaults to meta.provenance.asOf).
         #[arg(long)]
         since: Option<String>,
+        /// Ratchet against a baseline: tolerate the unmapped paths it lists;
+        /// fail only on NEW unmapped, any stale, or any rot.
+        #[arg(long, conflicts_with = "write_baseline")]
+        baseline: Option<PathBuf>,
+        /// Snapshot the current unmapped set to this file (sorted, byte-stable)
+        /// and exit 0, instead of checking drift — establishes the ratchet floor.
+        #[arg(long = "write-baseline")]
+        write_baseline: Option<PathBuf>,
         /// Emit the machine-readable report as canonical JSON.
         #[arg(long)]
         json: bool,
@@ -114,8 +128,9 @@ The graph must already carry a meta.provenance object ({\"origin\": ...});
 stamp only bumps its asOf field.
 ")]
     Stamp {
-        /// Path to the graph JSON file (rewritten atomically).
-        file: PathBuf,
+        /// Path to the graph JSON file (rewritten atomically; optional, resolves
+        /// $MAAPP_GRAPH then .maapp/graph.json when omitted).
+        file: Option<PathBuf>,
         /// Path to the source repository to resolve the rev in.
         #[arg(long)]
         repo: PathBuf,
@@ -138,8 +153,9 @@ Examples:
     AddNode {
         /// The new node's slug, e.g. ds:home/Feed.
         slug: String,
-        /// Path to the graph JSON file (rewritten atomically, canonical form).
-        file: PathBuf,
+        /// Path to the graph JSON file (rewritten atomically, canonical form;
+        /// optional, resolves $MAAPP_GRAPH then .maapp/graph.json when omitted).
+        file: Option<PathBuf>,
         /// Node kind (frozen-core or a nodeKindRegistry x- kind).
         #[arg(long)]
         kind: String,
@@ -170,8 +186,9 @@ Examples:
     UpdateNode {
         /// The node's slug.
         slug: String,
-        /// Path to the graph JSON file (rewritten atomically, canonical form).
-        file: PathBuf,
+        /// Path to the graph JSON file (rewritten atomically, canonical form;
+        /// optional, resolves $MAAPP_GRAPH then .maapp/graph.json when omitted).
+        file: Option<PathBuf>,
         /// Replace the one-line intent.
         #[arg(long)]
         intent: Option<String>,
@@ -197,8 +214,9 @@ Examples:
     RemoveNode {
         /// The node's slug.
         slug: String,
-        /// Path to the graph JSON file (rewritten atomically, canonical form).
-        file: PathBuf,
+        /// Path to the graph JSON file (rewritten atomically, canonical form;
+        /// optional, resolves $MAAPP_GRAPH then .maapp/graph.json when omitted).
+        file: Option<PathBuf>,
         /// Also remove incident edges (prints exactly what was removed).
         #[arg(long)]
         cascade: bool,
@@ -222,8 +240,9 @@ Examples:
         from: String,
         /// Target node slug.
         to: String,
-        /// Path to the graph JSON file (rewritten atomically, canonical form).
-        file: PathBuf,
+        /// Path to the graph JSON file (rewritten atomically, canonical form;
+        /// optional, resolves $MAAPP_GRAPH then .maapp/graph.json when omitted).
+        file: Option<PathBuf>,
         /// Edge attr K=V (repeatable; V parses as JSON when it can).
         #[arg(long = "attr", value_name = "K=V")]
         attrs: Vec<String>,
@@ -247,8 +266,9 @@ Examples:
         from: String,
         /// Target node slug.
         to: String,
-        /// Path to the graph JSON file (rewritten atomically, canonical form).
-        file: PathBuf,
+        /// Path to the graph JSON file (rewritten atomically, canonical form;
+        /// optional, resolves $MAAPP_GRAPH then .maapp/graph.json when omitted).
+        file: Option<PathBuf>,
         /// Bump meta.provenance.asOf to this SHA in the same atomic write.
         #[arg(long = "as-of", value_name = "SHA")]
         as_of: Option<String>,
@@ -267,8 +287,9 @@ Examples:
   maapp export examples/checkout.json --slice scope:checkout
 ")]
     Export {
-        /// Path to the graph JSON file (read-only).
-        file: PathBuf,
+        /// Path to the graph JSON file (read-only; optional, resolves
+        /// $MAAPP_GRAPH then .maapp/graph.json when omitted).
+        file: Option<PathBuf>,
         /// Slice selector: a node slug (BFS neighborhood) or scope:<scope>
         /// (all *:<scope>/* nodes).
         #[arg(long, value_name = "SELECTOR")]
@@ -368,17 +389,67 @@ Examples:
     },
 }
 
+/// Resolve the graph `<file>` for a verb whose positional was omitted (T7 /
+/// docs/INTEGRATIONS.md). An explicit arg ALWAYS wins; otherwise resolve
+/// `$MAAPP_GRAPH` (when set and non-empty) -> `.maapp/graph.json` (relative to
+/// the current directory, when it exists) -> a pointed usage error naming both.
+/// The environment is read HERE at the binary boundary (the lib never touches
+/// the environment); `diff` opts out (a two-file verb keeps both explicit).
+fn resolve_graph_path(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
+    if let Some(p) = explicit {
+        return Ok(p);
+    }
+    if let Ok(v) = std::env::var("MAAPP_GRAPH")
+        && !v.is_empty()
+    {
+        return Ok(PathBuf::from(v));
+    }
+    let default = PathBuf::from(".maapp/graph.json");
+    if default.is_file() {
+        return Ok(default);
+    }
+    Err(
+        "no graph file given and none resolved: pass the path explicitly, set $MAAPP_GRAPH, \
+         or create .maapp/graph.json (relative to the current directory)"
+            .to_string(),
+    )
+}
+
+/// Print a resolution failure hint to stderr and return the usage exit code (2).
+fn resolution_error(hint: &str) -> ExitCode {
+    eprintln!("maapp: {hint}");
+    ExitCode::from(2)
+}
+
 fn main() -> ExitCode {
     match Cli::parse().command {
-        Command::Validate { file, json } => run_validate(&file, json),
+        Command::Validate { file, json } => match resolve_graph_path(file) {
+            Ok(p) => run_validate(&p, json),
+            Err(hint) => resolution_error(&hint),
+        },
         Command::Diff { old, new, json } => run_diff(&old, &new, json),
         Command::CheckDrift {
             file,
             repo,
             since,
+            baseline,
+            write_baseline,
             json,
-        } => run_check_drift(&file, &repo, since.as_deref(), json),
-        Command::Stamp { file, repo, as_of } => run_stamp(&file, &repo, as_of.as_deref()),
+        } => match resolve_graph_path(file) {
+            Ok(p) => run_check_drift(
+                &p,
+                &repo,
+                since.as_deref(),
+                json,
+                baseline.as_deref(),
+                write_baseline.as_deref(),
+            ),
+            Err(hint) => resolution_error(&hint),
+        },
+        Command::Stamp { file, repo, as_of } => match resolve_graph_path(file) {
+            Ok(p) => run_stamp(&p, &repo, as_of.as_deref()),
+            Err(hint) => resolution_error(&hint),
+        },
         #[cfg(not(target_arch = "wasm32"))]
         Command::AddNode {
             slug,
@@ -388,19 +459,22 @@ fn main() -> ExitCode {
             refs,
             attrs,
             as_of,
-        } => emit_mutation((|| {
-            let refs = parse_kvs(&refs)?;
-            let attrs = parse_kvs(&attrs)?;
-            maapp::mutate::add_node(
-                &file,
-                &slug,
-                &kind,
-                &intent,
-                &refs,
-                &attrs,
-                as_of.as_deref(),
-            )
-        })()),
+        } => match resolve_graph_path(file) {
+            Err(hint) => resolution_error(&hint),
+            Ok(file) => emit_mutation((|| {
+                let refs = parse_kvs(&refs)?;
+                let attrs = parse_kvs(&attrs)?;
+                maapp::mutate::add_node(
+                    &file,
+                    &slug,
+                    &kind,
+                    &intent,
+                    &refs,
+                    &attrs,
+                    as_of.as_deref(),
+                )
+            })()),
+        },
         #[cfg(not(target_arch = "wasm32"))]
         Command::UpdateNode {
             slug,
@@ -409,30 +483,36 @@ fn main() -> ExitCode {
             refs,
             attrs,
             as_of,
-        } => emit_mutation((|| {
-            let refs = parse_kvs(&refs)?;
-            let attrs = parse_kvs(&attrs)?;
-            maapp::mutate::update_node(
-                &file,
-                &slug,
-                intent.as_deref(),
-                &refs,
-                &attrs,
-                as_of.as_deref(),
-            )
-        })()),
+        } => match resolve_graph_path(file) {
+            Err(hint) => resolution_error(&hint),
+            Ok(file) => emit_mutation((|| {
+                let refs = parse_kvs(&refs)?;
+                let attrs = parse_kvs(&attrs)?;
+                maapp::mutate::update_node(
+                    &file,
+                    &slug,
+                    intent.as_deref(),
+                    &refs,
+                    &attrs,
+                    as_of.as_deref(),
+                )
+            })()),
+        },
         #[cfg(not(target_arch = "wasm32"))]
         Command::RemoveNode {
             slug,
             file,
             cascade,
             as_of,
-        } => emit_mutation(maapp::mutate::remove_node(
-            &file,
-            &slug,
-            cascade,
-            as_of.as_deref(),
-        )),
+        } => match resolve_graph_path(file) {
+            Err(hint) => resolution_error(&hint),
+            Ok(file) => emit_mutation(maapp::mutate::remove_node(
+                &file,
+                &slug,
+                cascade,
+                as_of.as_deref(),
+            )),
+        },
         #[cfg(not(target_arch = "wasm32"))]
         Command::AddEdge {
             r#type,
@@ -441,10 +521,13 @@ fn main() -> ExitCode {
             file,
             attrs,
             as_of,
-        } => emit_mutation((|| {
-            let attrs = parse_kvs(&attrs)?;
-            maapp::mutate::add_edge(&file, &r#type, &from, &to, &attrs, as_of.as_deref())
-        })()),
+        } => match resolve_graph_path(file) {
+            Err(hint) => resolution_error(&hint),
+            Ok(file) => emit_mutation((|| {
+                let attrs = parse_kvs(&attrs)?;
+                maapp::mutate::add_edge(&file, &r#type, &from, &to, &attrs, as_of.as_deref())
+            })()),
+        },
         #[cfg(not(target_arch = "wasm32"))]
         Command::RemoveEdge {
             r#type,
@@ -452,13 +535,16 @@ fn main() -> ExitCode {
             to,
             file,
             as_of,
-        } => emit_mutation(maapp::mutate::remove_edge(
-            &file,
-            &r#type,
-            &from,
-            &to,
-            as_of.as_deref(),
-        )),
+        } => match resolve_graph_path(file) {
+            Err(hint) => resolution_error(&hint),
+            Ok(file) => emit_mutation(maapp::mutate::remove_edge(
+                &file,
+                &r#type,
+                &from,
+                &to,
+                as_of.as_deref(),
+            )),
+        },
         #[cfg(target_arch = "wasm32")]
         Command::AddNode { .. }
         | Command::UpdateNode { .. }
@@ -473,7 +559,10 @@ fn main() -> ExitCode {
             slice,
             depth,
             json,
-        } => run_export(&file, &slice, depth, json),
+        } => match resolve_graph_path(file) {
+            Ok(p) => run_export(&p, &slice, depth, json),
+            Err(hint) => resolution_error(&hint),
+        },
         Command::Query { verb, rest } => run_query(&verb, &rest),
         Command::Render { what, rest } => run_render(&what, &rest),
         Command::Schema => run_schema(),
@@ -694,6 +783,8 @@ fn run_check_drift(
     repo: &std::path::Path,
     since: Option<&str>,
     json: bool,
+    baseline: Option<&std::path::Path>,
+    write_baseline: Option<&std::path::Path>,
 ) -> ExitCode {
     let g = match load_graph_from_path(file) {
         Ok(g) => g,
@@ -702,7 +793,47 @@ fn run_check_drift(
             return ExitCode::from(2);
         }
     };
-    let report = match maapp::check_drift(&g, repo, since) {
+
+    // --write-baseline: snapshot the current (default-excluded) unmapped set —
+    // computed with NO baseline — then exit 0. A maintenance action, not a
+    // drift check, so exit code + --json report semantics do not apply.
+    if let Some(bpath) = write_baseline {
+        let report = match maapp::check_drift(&g, repo, since, file, None) {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("maapp: {e}");
+                return ExitCode::from(2);
+            }
+        };
+        return match maapp::write_baseline(bpath, &report) {
+            Ok(n) => {
+                println!(
+                    "WROTE BASELINE {}: {n} tolerated unmapped path(s)",
+                    bpath.display()
+                );
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("maapp: {e}");
+                ExitCode::from(2)
+            }
+        };
+    }
+
+    // --baseline: load the ratchet floor (a malformed/missing file is exit 2,
+    // never a silent tolerate-nothing).
+    let baseline = match baseline {
+        Some(p) => match maapp::Baseline::load(p) {
+            Ok(b) => Some(b),
+            Err(e) => {
+                eprintln!("maapp: {e}");
+                return ExitCode::from(2);
+            }
+        },
+        None => None,
+    };
+
+    let report = match maapp::check_drift(&g, repo, since, file, baseline.as_ref()) {
         Ok(r) => r,
         Err(e) => {
             eprintln!("maapp: {e}");
@@ -756,6 +887,8 @@ fn run_check_drift(
     _repo: &std::path::Path,
     _since: Option<&str>,
     _json: bool,
+    _baseline: Option<&std::path::Path>,
+    _write_baseline: Option<&std::path::Path>,
 ) -> ExitCode {
     eprintln!("maapp: check-drift is native-only (reads the source repo from disk)");
     ExitCode::from(2)
@@ -902,18 +1035,20 @@ fn run_query(verb: &str, rest: &[String]) -> ExitCode {
     // For all other verbs: positional[0] = id, positional[1] = file.
     // Two code paths avoid carrying Option<&str> past this point.
     if verb == "orphans" {
-        let file_str = match positionals.as_slice() {
-            [file] => *file,
-            [] => {
-                eprintln!("maapp: query orphans requires a <file> argument");
-                return ExitCode::from(2);
-            }
+        // orphans takes no id, so the lone positional (if any) is the file.
+        let explicit = match positionals.as_slice() {
+            [file] => Some(PathBuf::from(*file)),
+            [] => None,
             _ => {
                 eprintln!("maapp: query orphans takes no id argument");
                 return ExitCode::from(2);
             }
         };
-        let g = match load_graph_from_path(std::path::Path::new(file_str)) {
+        let file = match resolve_graph_path(explicit) {
+            Ok(p) => p,
+            Err(hint) => return resolution_error(&hint),
+        };
+        let g = match load_graph_from_path(&file) {
             Ok(g) => g,
             Err(e) => {
                 eprintln!("maapp: {e}");
@@ -924,11 +1059,12 @@ fn run_query(verb: &str, rest: &[String]) -> ExitCode {
         return emit_json_or_text(json_flag, &res, || render_orphans(&res));
     }
 
-    // All non-orphan verbs require an id.
-    let (nid, file_str) = match positionals.as_slice() {
-        [id, file] => (*id, *file),
-        [_] | [] => {
-            eprintln!("maapp: query {verb} requires <id> and <file> arguments");
+    // All non-orphan verbs require an id; the file is optional (T7-resolved).
+    let (nid, explicit) = match positionals.as_slice() {
+        [id, file] => (*id, Some(PathBuf::from(*file))),
+        [id] => (*id, None),
+        [] => {
+            eprintln!("maapp: query {verb} requires an <id> argument");
             return ExitCode::from(2);
         }
         _ => {
@@ -937,8 +1073,11 @@ fn run_query(verb: &str, rest: &[String]) -> ExitCode {
         }
     };
 
-    let file_path = std::path::Path::new(file_str);
-    let g = match load_graph_from_path(file_path) {
+    let file = match resolve_graph_path(explicit) {
+        Ok(p) => p,
+        Err(hint) => return resolution_error(&hint),
+    };
+    let g = match load_graph_from_path(&file) {
         Ok(g) => g,
         Err(e) => {
             eprintln!("maapp: {e}");
@@ -1258,12 +1397,10 @@ fn run_render(verb: &str, rest: &[String]) -> ExitCode {
         }
     }
 
-    let file_str = match positionals.first() {
-        Some(f) => *f,
-        None => {
-            eprintln!("maapp: render {verb} requires a <file> argument");
-            return ExitCode::from(2);
-        }
+    let explicit = positionals.first().map(|f| PathBuf::from(*f));
+    let file = match resolve_graph_path(explicit) {
+        Ok(p) => p,
+        Err(hint) => return resolution_error(&hint),
     };
 
     // html requires --out (oracle: `--out OUT (REQUIRED for html)`).
@@ -1274,7 +1411,7 @@ fn run_render(verb: &str, rest: &[String]) -> ExitCode {
         return ExitCode::from(2);
     }
 
-    let g = match load_graph_from_path(std::path::Path::new(file_str)) {
+    let g = match load_graph_from_path(&file) {
         Ok(g) => g,
         Err(e) => {
             eprintln!("maapp: {e}");
