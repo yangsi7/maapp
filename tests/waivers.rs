@@ -28,7 +28,7 @@ fn maapp() -> Command {
 fn orphan_doc() -> Value {
     json!({
         "schema": "maapp-graph",
-        "version": "1.3",
+        "version": "1.4",
         "nodes": {
             "surface": {
                 "screen:home/Main": {"kind": "Screen", "intent": "Home.", "refs": {}},

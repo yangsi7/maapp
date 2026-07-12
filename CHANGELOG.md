@@ -34,6 +34,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   installed `maapp-gate.yml` is fail-closed and its "Install maapp" step is an unfilled TODO, so
   the gate stays red on every PR until you pin release binaries. The warning self-silences once
   that step is filled.
+- **`fmt` canonicality verb** — `maapp fmt <graph>` rewrites a graph to canonical form
+  atomically, and `maapp fmt <graph> --check` exits 1 (naming the offending file path, `gofmt -l`
+  style) when the on-disk bytes are not already canonical, writing nothing. The canonical form is
+  byte-identical to what the mutation verbs emit, so a hand edit becomes detectable. Wired into the
+  `init` CI-gate template (a hard `fmt --check` step) and the CLAUDE.md/AGENTS.md routing patch's
+  maintenance loop.
+- **Batch `update-node` / `remove-node`** — both verbs now accept multiple slugs OR a
+  `--where key=value` selector (matching `kind`, `refs.<k>`, or `attrs.<k>`), applying the change to
+  every selected node in ONE atomic all-or-nothing write. An unknown slug or an empty `--where`
+  match fails the whole batch before any write (exit 2, file untouched); without `--cascade`,
+  `remove-node` refuses the batch on the first still-edged node. Single-slug behavior is unchanged.
+- **`migrate` verb + `W_VERSION_BEHIND` advisory** — `maapp migrate <graph> [--to <minor>]`
+  mechanically upgrades a behind-schema graph to the engine's latest known minor (or `--to`), an
+  additive version bump. The write is a MINIMAL in-place bump that preserves the document's existing
+  order (a version upgrade never wholesale-reorders an authored file; run `fmt` for that), guarded by
+  the mutation verbs' no-regression rule. A redundant `meta.version` field (the shipped-example
+  convention) is bumped in lockstep when present, and never injected when absent. A graph already at the target is a no-op (no write); a
+  downgrade, a cross-major migration, an unknown-future target, or a graph with no parseable version
+  is refused (exit 2, file untouched). `validate` now emits the previously-silent `W_VERSION_BEHIND`
+  advisory when a graph's minor is behind the engine, pointing at `maapp migrate` — so an adopter
+  graph rotting on an old schema tells on itself. The 6 shipped example graphs were upgraded 1.3 -> 1.4
+  (by running `maapp migrate` on each) so the reference corpus models current practice and validates
+  clean; the hint fires only on genuinely-stale graphs.
+- **Slice-tag export** — `maapp export --slice-tag <tag>` emits a complete, valid sub-graph of every
+  node carrying `refs.slice == <tag>` (a walking-skeleton slice id, e.g. `S3`) plus their
+  interconnecting edges — the same output contract as `--slice`, stamped `meta.slice_of` with a
+  `slice-tag:<tag>` selector. Mutually exclusive with `--slice`; a tag matching nothing is exit 2.
+- **SVG render policy for `storyboard`/`spine`** — these verbs emit ASCII; `render storyboard|spine
+  --out *.svg` previously wrote ASCII into a `.svg` file silently. It now exits 2 with a pointer to
+  `render html` (the only real SVG surface). `--out` to a non-`.svg` file still writes the ASCII text.
 
 ## [0.1.0] - 2026-07-11
 

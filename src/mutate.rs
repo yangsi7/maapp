@@ -43,8 +43,10 @@
 use crate::error::EngineError;
 use crate::export::canonical_doc;
 use crate::graph::{Graph, core_node_kinds};
+use crate::model::Node;
 use crate::validate::validate;
 use serde_json::{Map, Value};
+use std::collections::BTreeSet;
 use std::path::Path;
 
 /// What a successful mutation did, for the CLI to print.
@@ -54,6 +56,28 @@ pub struct MutationOutcome {
     pub summary: String,
     /// The `asOf` value stamped in the same write, when `--as-of` was given.
     pub stamped: Option<String>,
+}
+
+/// How a batch mutation (`update-node` / `remove-node`, T3b) names its targets:
+/// an explicit slug list, or a `--where key=value` filter. A single slug is
+/// simply `Slugs(&[slug])` — the single-slug behavior is untouched.
+#[derive(Debug, Clone, Copy)]
+pub enum NodeSelector<'a> {
+    /// One or more explicit slugs (deduped in order; EVERY slug must exist, or
+    /// the whole batch fails naming the first unknown — all-or-nothing).
+    Slugs(&'a [String]),
+    /// `--where key=value`: match nodes on `kind`, `refs.<k>`, or `attrs.<k>`
+    /// (string-compared). Matching nothing is a usage error, never a no-op.
+    Where { key: &'a str, value: &'a str },
+}
+
+/// The human display of a selector (used in the no-op / audit messages). One
+/// slug renders as the bare slug, so the single-slug messages are unchanged.
+fn selector_display(selector: &NodeSelector) -> String {
+    match selector {
+        NodeSelector::Slugs(slugs) => slugs.join(", "),
+        NodeSelector::Where { key, value } => format!("--where {key}={value}"),
+    }
 }
 
 /// Parse one `--ref`/`--attr` flag value in `K=V` form. `V` parses as JSON
@@ -140,9 +164,9 @@ pub fn add_node(
 
 /// `maapp update-node <slug> <graph> [--intent I] [--ref k=v]... [--attr k=v]...`
 ///
-/// No flags = [`EngineError::NoOpUpdate`] (exit 2): a no-op is an error, not a
-/// silent success. `--ref`/`--attr` pairs merge into the existing blocks
-/// (creating them when absent).
+/// Single-slug convenience over [`update_nodes`]: no flags =
+/// [`EngineError::NoOpUpdate`] (exit 2, a no-op is an error), `--ref`/`--attr`
+/// pairs merge into the existing blocks (creating them when absent).
 pub fn update_node(
     path: &Path,
     slug: &str,
@@ -151,102 +175,177 @@ pub fn update_node(
     attrs: &[(String, Value)],
     as_of: Option<&str>,
 ) -> Result<MutationOutcome, EngineError> {
+    let slugs = [slug.to_string()];
+    update_nodes(
+        path,
+        NodeSelector::Slugs(&slugs),
+        intent,
+        refs,
+        attrs,
+        as_of,
+    )
+}
+
+/// `maapp update-node <slug>... | --where k=v <graph> [--intent I] [--ref ...] [--attr ...]`
+///
+/// Batch update (T3b): apply the SAME intent/refs/attrs delta to every selected
+/// node in ONE atomic validated write. No flags = [`EngineError::NoOpUpdate`]
+/// (a no-op is an error). An unknown slug (Slugs form) or an empty match (Where
+/// form) fails the WHOLE batch before any write — all-or-nothing.
+pub fn update_nodes(
+    path: &Path,
+    selector: NodeSelector<'_>,
+    intent: Option<&str>,
+    refs: &[(String, Value)],
+    attrs: &[(String, Value)],
+    as_of: Option<&str>,
+) -> Result<MutationOutcome, EngineError> {
     if intent.is_none() && refs.is_empty() && attrs.is_empty() {
-        return Err(EngineError::NoOpUpdate(slug.to_string()));
+        return Err(EngineError::NoOpUpdate(selector_display(&selector)));
     }
     let g = crate::load_graph_from_path(path)?;
-    let layer = g
-        .node_layer
-        .get(slug)
-        .cloned()
-        .ok_or_else(|| EngineError::NodeNotFound(slug.to_string()))?;
+    let targets = resolve_targets(&g, &selector)?;
+    // Capture (slug, layer) before moving the doc out of the graph.
+    let target_layers: Vec<(String, String)> = targets
+        .iter()
+        .map(|s| (s.clone(), g.node_layer.get(s).cloned().unwrap_or_default()))
+        .collect();
     let before = hard_count(&g);
 
-    let mut changed: Vec<String> = Vec::new();
     let mut doc = g.doc;
-    let node = doc
-        .get_mut("nodes")
-        .and_then(|n| n.get_mut(&layer))
-        .and_then(|l| l.get_mut(slug))
-        .and_then(Value::as_object_mut)
-        .ok_or(EngineError::MalformedDocument("node body is not an object"))?;
-    if let Some(text) = intent {
-        node.insert("intent".to_string(), Value::String(text.to_string()));
-        changed.push("intent".to_string());
+    let mut summaries: Vec<String> = Vec::new();
+    for (slug, layer) in &target_layers {
+        let node = doc
+            .get_mut("nodes")
+            .and_then(|n| n.get_mut(layer))
+            .and_then(|l| l.get_mut(slug))
+            .and_then(Value::as_object_mut)
+            .ok_or(EngineError::MalformedDocument("node body is not an object"))?;
+        let mut changed: Vec<String> = Vec::new();
+        if let Some(text) = intent {
+            node.insert("intent".to_string(), Value::String(text.to_string()));
+            changed.push("intent".to_string());
+        }
+        merge_pairs(node, "refs", refs, &mut changed)?;
+        merge_pairs(node, "attrs", attrs, &mut changed)?;
+        summaries.push(format!("UPDATED node {slug} ({})", changed.join(", ")));
     }
-    merge_pairs(node, "refs", refs, &mut changed)?;
-    merge_pairs(node, "attrs", attrs, &mut changed)?;
 
     let stamped = finish(path, before, doc, as_of)?;
     Ok(MutationOutcome {
-        summary: format!("UPDATED node {slug} ({})", changed.join(", ")),
+        summary: summaries.join("\n"),
         stamped,
     })
 }
 
 /// `maapp remove-node <slug> <graph> [--cascade]`
 ///
-/// With incident edges and no `--cascade`: refuses, listing them (spec §4).
-/// With `--cascade`: removes node + incident edges and reports exactly what
-/// was removed.
+/// Single-slug convenience over [`remove_nodes`]: with incident edges and no
+/// `--cascade` it refuses, listing them (spec §4); with `--cascade` it removes
+/// the node + its incident edges and reports exactly what was removed.
 pub fn remove_node(
     path: &Path,
     slug: &str,
     cascade: bool,
     as_of: Option<&str>,
 ) -> Result<MutationOutcome, EngineError> {
+    let slugs = [slug.to_string()];
+    remove_nodes(path, NodeSelector::Slugs(&slugs), cascade, as_of)
+}
+
+/// `maapp remove-node <slug>... | --where k=v <graph> [--cascade]`
+///
+/// Batch remove (T3b): remove every selected node in ONE atomic validated
+/// write. All-or-nothing — an unknown slug / empty match fails before any
+/// write, and without `--cascade` the FIRST selected node that still has
+/// incident edges refuses the whole batch (naming it + its edges, exit 2). With
+/// `--cascade` the union of all incident edges is removed once.
+pub fn remove_nodes(
+    path: &Path,
+    selector: NodeSelector<'_>,
+    cascade: bool,
+    as_of: Option<&str>,
+) -> Result<MutationOutcome, EngineError> {
     let g = crate::load_graph_from_path(path)?;
-    let layer = g
-        .node_layer
-        .get(slug)
-        .cloned()
-        .ok_or_else(|| EngineError::NodeNotFound(slug.to_string()))?;
+    let targets = resolve_targets(&g, &selector)?;
     let before = hard_count(&g);
 
-    // Incident edge indices in document order (out + in, deduped, sorted).
-    let mut incident: Vec<usize> = g
-        .out_edges
-        .get(slug)
-        .into_iter()
-        .chain(g.in_edges.get(slug))
-        .flatten()
-        .copied()
-        .collect();
-    incident.sort_unstable();
-    incident.dedup();
-    let eids: Vec<String> = incident.iter().map(|&i| g.edges[i].eid()).collect();
-    if !cascade && !eids.is_empty() {
+    // Per-target (slug, layer, incident edge indices in doc order), computed
+    // against the loaded graph BEFORE the doc is moved out for mutation.
+    let mut per_node: Vec<(String, String, Vec<usize>)> = Vec::new();
+    for slug in &targets {
+        let layer = g.node_layer.get(slug).cloned().unwrap_or_default();
+        let mut incident: Vec<usize> = g
+            .out_edges
+            .get(slug.as_str())
+            .into_iter()
+            .chain(g.in_edges.get(slug.as_str()))
+            .flatten()
+            .copied()
+            .collect();
+        incident.sort_unstable();
+        incident.dedup();
+        per_node.push((slug.clone(), layer, incident));
+    }
+
+    // Refuse the whole batch on the FIRST node that still has incident edges
+    // (all-or-nothing), naming it + its own edges exactly as the single verb.
+    if !cascade
+        && let Some((slug, _, incident)) = per_node.iter().find(|(_, _, inc)| !inc.is_empty())
+    {
+        let eids: Vec<String> = incident.iter().map(|&i| g.edges[i].eid()).collect();
         return Err(EngineError::RemoveNodeHasEdges {
-            node: slug.to_string(),
+            node: slug.clone(),
             eids,
         });
     }
 
+    // Per-node summary lines + the union of incident edges to drop (each once).
+    let summaries: Vec<String> = per_node
+        .iter()
+        .map(|(slug, layer, incident)| {
+            let mut s = format!("REMOVED node {slug} ({layer})");
+            if !incident.is_empty() {
+                s.push_str(&format!(" + {} edge(s):", incident.len()));
+                for &i in incident {
+                    s.push_str(&format!("\n  {}", g.edges[i].eid()));
+                }
+            }
+            s
+        })
+        .collect();
+    let mut union_edges: Vec<usize> = per_node
+        .iter()
+        .flat_map(|(_, _, inc)| inc.iter().copied())
+        .collect();
+    union_edges.sort_unstable();
+    union_edges.dedup();
+
     let mut doc = g.doc;
-    let layer_map = doc
-        .get_mut("nodes")
-        .and_then(|n| n.get_mut(&layer))
-        .and_then(Value::as_object_mut)
-        .ok_or(EngineError::MalformedDocument("layer map is not an object"))?;
-    layer_map.remove(slug);
-    if !incident.is_empty()
+    for (slug, layer, _) in &per_node {
+        if let Some(layer_map) = doc
+            .get_mut("nodes")
+            .and_then(|n| n.get_mut(layer))
+            .and_then(Value::as_object_mut)
+        {
+            layer_map.remove(slug);
+        }
+    }
+    if !union_edges.is_empty()
         && let Some(edges) = doc.get_mut("edges").and_then(Value::as_array_mut)
     {
-        // g.edges indices map 1:1 onto the parsed doc's edges array.
-        for &i in incident.iter().rev() {
+        // g.edges indices map 1:1 onto the parsed doc's edges array; remove in
+        // reverse so earlier indices stay valid.
+        for &i in union_edges.iter().rev() {
             edges.remove(i);
         }
     }
 
     let stamped = finish(path, before, doc, as_of)?;
-    let mut summary = format!("REMOVED node {slug} ({layer})");
-    if !eids.is_empty() {
-        summary.push_str(&format!(" + {} edge(s):", eids.len()));
-        for eid in &eids {
-            summary.push_str(&format!("\n  {eid}"));
-        }
-    }
-    Ok(MutationOutcome { summary, stamped })
+    Ok(MutationOutcome {
+        summary: summaries.join("\n"),
+        stamped,
+    })
 }
 
 /// `maapp add-edge <type> <from> <to> <graph> [--attr k=v]...`
@@ -350,6 +449,73 @@ fn hard_count(g: &Graph) -> usize {
     validate(g).iter().filter(|f| f.hard()).count()
 }
 
+/// Resolve a batch selector to a deterministic list of existing slugs (T3b).
+///
+/// - `Slugs`: preserve first-seen order, dedupe, and fail the whole batch on
+///   the FIRST unknown slug ([`EngineError::NodeNotFound`]) — all-or-nothing,
+///   before any write.
+/// - `Where`: every node matching the filter, in slug-sorted order (`g.nodes`
+///   is a `BTreeMap`); an empty match is [`EngineError::WhereMatchesNothing`].
+fn resolve_targets(g: &Graph, selector: &NodeSelector) -> Result<Vec<String>, EngineError> {
+    match selector {
+        NodeSelector::Slugs(slugs) => {
+            let mut seen: BTreeSet<&str> = BTreeSet::new();
+            let mut out: Vec<String> = Vec::new();
+            for s in slugs.iter() {
+                if !g.node_layer.contains_key(s) {
+                    return Err(EngineError::NodeNotFound(s.clone()));
+                }
+                if seen.insert(s.as_str()) {
+                    out.push(s.clone());
+                }
+            }
+            Ok(out)
+        }
+        NodeSelector::Where { key, value } => {
+            let out: Vec<String> = g
+                .nodes
+                .iter()
+                .filter(|(_, n)| where_matches(n, key, value))
+                .map(|(slug, _)| slug.clone())
+                .collect();
+            if out.is_empty() {
+                return Err(EngineError::WhereMatchesNothing {
+                    key: (*key).to_string(),
+                    value: (*value).to_string(),
+                });
+            }
+            Ok(out)
+        }
+    }
+}
+
+/// Does a node match a `--where key=value` filter? `key` is `kind`, `refs.<k>`,
+/// or `attrs.<k>`; the compared value is the field's scalar rendered as a string
+/// (a JSON string is its inner text, `true`/`1` render as-is). Any other key
+/// shape matches nothing (the caller surfaces the empty-match error).
+fn where_matches(n: &Node, key: &str, value: &str) -> bool {
+    if key == "kind" {
+        return n.kind() == Some(value);
+    }
+    if let Some(k) = key.strip_prefix("refs.") {
+        return node_field_scalar(n.refs.as_ref(), k).as_deref() == Some(value);
+    }
+    if let Some(k) = key.strip_prefix("attrs.") {
+        return node_field_scalar(n.attrs.as_ref(), k).as_deref() == Some(value);
+    }
+    false
+}
+
+/// A node `refs`/`attrs` sub-field rendered as a comparable string, or `None`
+/// when the block/field is absent or JSON `null`.
+fn node_field_scalar(block: Option<&Value>, field: &str) -> Option<String> {
+    match block?.as_object()?.get(field)? {
+        Value::String(s) => Some(s.clone()),
+        Value::Null => None,
+        other => Some(other.to_string()),
+    }
+}
+
 /// Build a JSON object from CLI `K=V` pairs (later duplicates win).
 fn pairs_object(pairs: &[(String, Value)]) -> Value {
     let mut out = Map::new();
@@ -384,9 +550,8 @@ fn merge_pairs(
     Ok(())
 }
 
-/// The atomic validated write shared by every verb: optional `--as-of` bump →
-/// reload → full validate → refuse on hard-error regression → canonical
-/// emission → temp + rename.
+/// The atomic validated write shared by every mutation verb: optional
+/// `--as-of` bump → [`commit_canonical`] (validate + canonical temp+rename).
 fn finish(
     path: &Path,
     before_errors: usize,
@@ -401,7 +566,19 @@ fn finish(
             .ok_or(EngineError::NoProvenanceToStamp)?;
         prov.insert("asOf".to_string(), Value::String(rev.to_string()));
     }
+    commit_canonical(path, before_errors, doc)?;
+    Ok(as_of.map(str::to_string))
+}
 
+/// Reload → full validate → refuse on hard-error regression → canonical
+/// emission → temp+rename. The write core shared by the mutation verbs (via
+/// [`finish`]) and `migrate` (T5): a write may never RAISE the hard-error
+/// count, and the on-disk result is always canonical form (spec §1).
+pub(crate) fn commit_canonical(
+    path: &Path,
+    before_errors: usize,
+    doc: Value,
+) -> Result<(), EngineError> {
     let g = Graph::from_doc(doc)?;
     let would_be: Vec<crate::validate::Finding> = validate(&g)
         .into_iter()
@@ -420,7 +597,13 @@ fn finish(
     let tmp = path.with_extension("json.tmp");
     std::fs::write(&tmp, &bytes)?;
     std::fs::rename(&tmp, path)?;
-    Ok(as_of.map(str::to_string))
+    Ok(())
+}
+
+/// Hard (`E_*`) finding count of a loaded graph — the `before` baseline a
+/// write must not exceed. Shared with `migrate` (T5).
+pub(crate) fn hard_error_count(g: &Graph) -> usize {
+    hard_count(g)
 }
 
 #[cfg(test)]

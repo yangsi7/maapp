@@ -18,6 +18,11 @@ pub mod diff;
 pub mod drift;
 pub mod error;
 pub mod export;
+/// Native-only (std::fs temp+rename writes): the `fmt` canonicality verb
+/// rewrites the graph file on disk (T3a). cfg-gated like `mutate`/`drift`; the
+/// pure canonical projection it emits through lives wasm-clean in `export`.
+#[cfg(not(target_arch = "wasm32"))]
+pub mod fmt;
 pub mod freshness;
 pub mod graph;
 /// Distribution wiring (`maapp init`): std::fs by nature, so CLI-only AND
@@ -25,6 +30,10 @@ pub mod graph;
 /// with, so the extra wasm cfg keeps the core wasm-clean like `drift`/`mutate`).
 #[cfg(all(feature = "cli", not(target_arch = "wasm32")))]
 pub mod init;
+/// Native-only (std::fs temp+rename writes): the `migrate` schema-upgrade verb
+/// rewrites the graph file on disk (T5). cfg-gated like `mutate`.
+#[cfg(not(target_arch = "wasm32"))]
+pub mod migrate;
 pub mod model;
 /// Native-only (std::fs temp+rename writes): the mutation verbs rewrite the
 /// named graph file on disk (LIFECYCLE-VERBS-SPEC §4). cfg-gated like `drift`;
@@ -43,10 +52,14 @@ pub use diff::{DiffReport, diff_graphs};
 pub use drift::{Baseline, DriftReport, check_drift, stamp, write_baseline};
 pub use error::EngineError;
 pub use export::{SliceSelector, canonical_doc, export_slice};
+#[cfg(not(target_arch = "wasm32"))]
+pub use fmt::{FmtOutcome, fmt};
 pub use freshness::{FreshnessScore, run_freshness};
 pub use graph::Graph;
 #[cfg(not(target_arch = "wasm32"))]
-pub use mutate::{MutationOutcome, parse_kv};
+pub use migrate::{MigrateOutcome, migrate};
+#[cfg(not(target_arch = "wasm32"))]
+pub use mutate::{MutationOutcome, NodeSelector, parse_kv};
 pub use schema::{schema_bytes, schema_value};
 pub use validate::{Finding, apply_waivers, validate};
 

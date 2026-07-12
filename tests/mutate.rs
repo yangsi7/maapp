@@ -672,6 +672,257 @@ fn as_of_without_provenance_exits_two_untouched() {
 }
 
 // ---------------------------------------------------------------------------
+// T3b — batch mutation: update-node / remove-node accept multiple slugs OR a
+// `--where key=value` selector; the write is atomic all-or-nothing (any failure
+// = no change, exit 2 naming the failing node). Single-slug behavior is
+// untouched (covered by the tests above).
+// ---------------------------------------------------------------------------
+
+/// base_doc plus a second Screen and two slice-tagged nodes, for batch tests.
+fn batch_doc() -> Value {
+    let mut doc = base_doc();
+    // A second Screen so `--where kind=Screen` matches more than one node.
+    doc["nodes"]["surface"]["screen:home/Detail"] =
+        json!({"kind": "Screen", "intent": "Detail.", "refs": {"slice": "S3"}});
+    // Tag an existing node so `--where refs.slice=S3` matches a set.
+    doc["nodes"]["surface"]["screen:home/Main"]["refs"] = json!({"slice": "S3"});
+    doc
+}
+
+#[test]
+fn update_node_batch_multiple_slugs_sets_each() {
+    let dir = TempDir::new().unwrap();
+    let path = write_doc(&dir, &base_doc());
+
+    maapp()
+        .args([
+            "update-node",
+            "act:home/Save",
+            "screen:home/Main",
+            path.to_str().unwrap(),
+            "--intent",
+            "Batched.",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("UPDATED node act:home/Save"))
+        .stdout(predicate::str::contains("UPDATED node screen:home/Main"));
+
+    let doc = read_doc(&path);
+    assert_eq!(doc["nodes"]["logic"]["act:home/Save"]["intent"], "Batched.");
+    assert_eq!(
+        doc["nodes"]["surface"]["screen:home/Main"]["intent"],
+        "Batched."
+    );
+}
+
+#[test]
+fn update_node_batch_unknown_slug_is_atomic_and_writes_nothing() {
+    let dir = TempDir::new().unwrap();
+    let path = write_doc(&dir, &base_doc());
+    let before = std::fs::read(&path).unwrap();
+
+    // One valid + one unknown slug → the whole batch fails, exit 2, no write.
+    maapp()
+        .args([
+            "update-node",
+            "act:home/Save",
+            "act:home/Nope",
+            path.to_str().unwrap(),
+            "--intent",
+            "x",
+        ])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("unknown node id: act:home/Nope"));
+
+    assert_eq!(
+        std::fs::read(&path).unwrap(),
+        before,
+        "atomic batch: a single unknown slug leaves the file byte-untouched"
+    );
+}
+
+#[test]
+fn update_node_where_kind_updates_all_matching() {
+    let dir = TempDir::new().unwrap();
+    let path = write_doc(&dir, &batch_doc());
+
+    maapp()
+        .args([
+            "update-node",
+            path.to_str().unwrap(),
+            "--where",
+            "kind=Screen",
+            "--attr",
+            "reviewed=true",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("screen:home/Detail"))
+        .stdout(predicate::str::contains("screen:home/Main"));
+
+    let doc = read_doc(&path);
+    assert_eq!(
+        doc["nodes"]["surface"]["screen:home/Main"]["attrs"]["reviewed"],
+        json!(true)
+    );
+    assert_eq!(
+        doc["nodes"]["surface"]["screen:home/Detail"]["attrs"]["reviewed"],
+        json!(true)
+    );
+    // A non-Screen node is untouched (no attrs block added).
+    assert!(
+        doc["nodes"]["logic"]["act:home/Save"]
+            .get("attrs")
+            .is_none()
+    );
+}
+
+#[test]
+fn update_node_where_refs_slice_updates_the_tagged_set() {
+    let dir = TempDir::new().unwrap();
+    let path = write_doc(&dir, &batch_doc());
+
+    maapp()
+        .args([
+            "update-node",
+            path.to_str().unwrap(),
+            "--where",
+            "refs.slice=S3",
+            "--intent",
+            "In slice 3.",
+        ])
+        .assert()
+        .success();
+
+    let doc = read_doc(&path);
+    // Both S3-tagged nodes updated; the untagged component is not.
+    assert_eq!(
+        doc["nodes"]["surface"]["screen:home/Main"]["intent"],
+        "In slice 3."
+    );
+    assert_eq!(
+        doc["nodes"]["surface"]["screen:home/Detail"]["intent"],
+        "In slice 3."
+    );
+    assert_eq!(
+        doc["nodes"]["surface"]["component:home/List"]["intent"],
+        "List."
+    );
+}
+
+#[test]
+fn update_node_where_matches_nothing_exits_two_untouched() {
+    let dir = TempDir::new().unwrap();
+    let path = write_doc(&dir, &batch_doc());
+    let before = std::fs::read(&path).unwrap();
+
+    maapp()
+        .args([
+            "update-node",
+            path.to_str().unwrap(),
+            "--where",
+            "kind=Nonexistent",
+            "--intent",
+            "x",
+        ])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains(
+            "no nodes match --where kind=Nonexistent",
+        ));
+
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+}
+
+#[test]
+fn update_node_where_and_slugs_conflict_exits_two() {
+    let dir = TempDir::new().unwrap();
+    let path = write_doc(&dir, &batch_doc());
+
+    maapp()
+        .args([
+            "update-node",
+            "act:home/Save",
+            path.to_str().unwrap(),
+            "--where",
+            "kind=Screen",
+            "--intent",
+            "x",
+        ])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("--where"));
+}
+
+#[test]
+fn remove_node_batch_where_cascade_removes_all_matching() {
+    let dir = TempDir::new().unwrap();
+    let path = write_doc(&dir, &batch_doc());
+
+    // screen:home/Main (S3, has renders/handles edges) + screen:home/Detail
+    // (S3, no edges). --cascade removes both plus Main's incident edges.
+    maapp()
+        .args([
+            "remove-node",
+            path.to_str().unwrap(),
+            "--where",
+            "refs.slice=S3",
+            "--cascade",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("screen:home/Main"))
+        .stdout(predicate::str::contains("screen:home/Detail"));
+
+    let doc = read_doc(&path);
+    assert!(doc["nodes"]["surface"].get("screen:home/Main").is_none());
+    assert!(doc["nodes"]["surface"].get("screen:home/Detail").is_none());
+    // The written graph still loads (validate never reports a load error, exit 2).
+    maapp()
+        .args(["validate", path.to_str().unwrap()])
+        .assert()
+        .code(predicate::ne(2));
+}
+
+#[test]
+fn remove_node_batch_multiple_slugs_without_cascade_refuses_naming_the_offender() {
+    let dir = TempDir::new().unwrap();
+    // An edge-free node first, then one WITH an incident edge: the batch scan
+    // skips the clean node and refuses on the offender (all-or-nothing).
+    let mut doc = base_doc();
+    doc["nodes"]["substrate"]["store:home/Orphan"] =
+        json!({"kind": "StateStore", "intent": "Standalone.", "refs": {}});
+    let path = write_doc(&dir, &doc);
+    let before = std::fs::read(&path).unwrap();
+
+    maapp()
+        .args([
+            "remove-node",
+            "store:home/Orphan",
+            "store:home/Cache",
+            path.to_str().unwrap(),
+        ])
+        .assert()
+        .code(2)
+        // The offender is store:home/Cache (writes edge in), not the clean Orphan.
+        .stderr(predicate::str::contains(
+            "node 'store:home/Cache' has 1 incident edge(s)",
+        ))
+        .stderr(predicate::str::contains(
+            "writes:act:home/Save->store:home/Cache",
+        ))
+        .stderr(predicate::str::contains("--cascade"));
+
+    assert_eq!(
+        std::fs::read(&path).unwrap(),
+        before,
+        "atomic batch: any edged node without --cascade leaves the file untouched"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // trial replay (spec §4 acceptance): step 1 = one update-node intent edit
 // ---------------------------------------------------------------------------
 

@@ -1,14 +1,14 @@
 {
   "meta": {
     "schema": "maapp-graph",
-    "version": "1.3",
+    "version": "1.4",
     "vocab": "spec/EDGE-VOCABULARY.md",
     "query": "graph query <node|neighbors|blast-radius|trace|view|orphans> [args] <file>",
     "validate": "graph validate <file>",
     "app": "Wanderlog — multi-step trip-personalization onboarding wizard (mobbin flow 43df4d6b-29ef-484e-98bc-2164e5c193b7)"
   },
   "schema": "maapp-graph",
-  "version": "1.3",
+  "version": "1.4",
   "nodeKindRegistry": {
     "x-ext:ExternalSurface": {
       "kind": "x-ext:ExternalSurface",

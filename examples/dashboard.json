@@ -1,7 +1,7 @@
 {
   "meta": {
     "schema": "maapp-graph",
-    "version": "1.3",
+    "version": "1.4",
     "app": "Revolut Business — Analytics dashboard (filter / drill-down / export)",
     "mobbin_flow_id": "f546addd-d31d-44aa-81fa-4a2328ed4387",
     "vocab": "spec/EDGE-VOCABULARY.md",
@@ -9,7 +9,7 @@
     "lints": []
   },
   "schema": "maapp-graph",
-  "version": "1.3",
+  "version": "1.4",
   "nodeKindRegistry": {
     "x-ext:ExternalSurface": {
       "kind": "x-ext:ExternalSurface",

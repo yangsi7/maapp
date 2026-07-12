@@ -7,7 +7,7 @@ expression: "render_out(&[\"storyboard\", \"--ascii\", \"examples/chat.json\"])"
                    (screen-first projection of the app-graph)                   
 ================================================================================
 nav containers (swimlane, not frames): (none)
-schema chat-graph v1.3  ·  96 nodes / 135 edges
+schema chat-graph v1.4  ·  96 nodes / 135 edges
 
 JOURNEY LANES (left -> right):  L0 depth 0  ->  L1 depth 1  ->  L2 depth 2  ->  L3 depth 3  ->  L4 depth 4
 

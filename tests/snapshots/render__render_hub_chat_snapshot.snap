@@ -4,7 +4,7 @@ expression: "render_out(&[\"hub\", \"examples/chat.json\"])"
 ---
 # App-Spec Graph — BLUEPRINT hub (generated; do NOT hand-edit)
 
-> schema `chat-graph` v`1.3` · 96 nodes · 135 edges. Regenerate with `graph render hub`.
+> schema `chat-graph` v`1.4` · 96 nodes · 135 edges. Regenerate with `graph render hub`.
 
 ## surface
 

@@ -7,7 +7,7 @@ BACKEND PULL SPINE — STALACTITE VIEW  (downward data-pull only)
 Each column = one consumer surface. Read DOWN: surface chip -> bound
 stores/viewstates (LOGIC) -> produced stores -> pipeline stages ->
 BackendOps (floor). Spine length = pull depth.
-schema checkout-graph v1.3  ·  65 nodes / 88 edges
+schema checkout-graph v1.4  ·  65 nodes / 88 edges
 
 PER-COLUMN PULL SUMMARY
 --------------------------------------------------------------------------------

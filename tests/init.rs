@@ -368,6 +368,31 @@ fn ci_gate_written_with_create_dirs_and_matches_asset() {
     );
 }
 
+/// T3a — the CI gate template wires the `fmt --check` canonical-form gate, and
+/// the CLAUDE.md/AGENTS.md routing patch names it in the maintenance loop.
+#[test]
+fn ci_gate_and_routing_patch_wire_fmt_check() {
+    let tmp = TempDir::new().unwrap();
+    maapp()
+        .args(["init", "--ci", "--dir", tmp.path().to_str().unwrap()])
+        .assert()
+        .success();
+
+    let ci = std::fs::read_to_string(tmp.path().join(".github/workflows/maapp-gate.yml")).unwrap();
+    assert!(
+        ci.contains("maapp fmt \"$MAAPP_GRAPH\" --check"),
+        "CI gate must run `maapp fmt --check` as a hard gate:\n{ci}"
+    );
+
+    // The routing patch lands in AGENTS.md (no .claude/ here) — its maintenance
+    // loop must name `maapp fmt` so agents keep the graph canonical.
+    let agents = std::fs::read_to_string(tmp.path().join("AGENTS.md")).unwrap();
+    assert!(
+        agents.contains("maapp fmt"),
+        "routing patch maintenance loop must name `maapp fmt`:\n{agents}"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // T1c — binary-aware `init --ci` (the gate is FAIL-CLOSED and dead until R1
 // pins release binaries; installing it silently would guarantee a red CI). The

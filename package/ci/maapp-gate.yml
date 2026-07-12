@@ -11,6 +11,7 @@
 #
 # CLI contract (LIFECYCLE-VERBS-SPEC §1/§3):
 #   maapp validate <graph> [--json]              exit 0 clean, 1 on E_* errors, 2 load/usage error
+#   maapp fmt <graph> --check                     exit 0 canonical, 1 non-canonical (hand-edited), 2 error
 #   maapp check-drift <graph> --repo <repo>      exit 0 fresh, 1 drift, 2 error
 #   maapp query orphans <graph>                  advisory reachability report
 #   maapp stamp <graph> --repo <repo>            re-pin meta.provenance.asOf after updating nodes
@@ -53,6 +54,12 @@ jobs:
 
       - name: Validate graph (hard gate — fail on any E_* finding)
         run: maapp validate "$MAAPP_GRAPH"
+
+      - name: Check canonical form (hard gate — fail on a non-canonical / hand-edited graph)
+        # Exit 1 = the committed graph is not in canonical form: it was hand-edited
+        # rather than written through the maapp mutation verbs (which always emit
+        # canonical). Fix: `maapp fmt "$MAAPP_GRAPH"` and commit the reformatted graph.
+        run: maapp fmt "$MAAPP_GRAPH" --check
 
       - name: Check drift (hard gate — fail on stale / unmapped / rotted anchors)
         # Exit 1 = drift: the PR touched anchored paths (stale candidates),

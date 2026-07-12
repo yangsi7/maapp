@@ -172,57 +172,47 @@ Examples:
         #[arg(long = "as-of", value_name = "SHA")]
         as_of: Option<String>,
     },
-    /// Update a node's intent / refs / attrs (no flags = error, exit 2).
+    /// Update one or more nodes' intent / refs / attrs (no changes = error,
+    /// exit 2). Batch by listing multiple slugs or a --where key=value filter.
     #[command(after_long_help = "\
 Examples:
-  # Replace the one-line intent
+  # Replace the one-line intent of one node
   maapp update-node screen:cart/Bag examples/checkout.json \\
       --intent \"Cart with promo entry and qty steppers\"
 
-  # Set a source anchor and an attr in the same atomic write
-  maapp update-node store:CartStore examples/checkout.json \\
-      --ref source=src/state/cart.ts --attr persistence=memory
+  # Set an attr on several nodes in one atomic write (batch by slug)
+  maapp update-node screen:cart/Bag store:CartStore examples/checkout.json \\
+      --attr reviewed=true
+
+  # Batch by selector: every Screen (--where matches kind / refs.* / attrs.*)
+  maapp update-node examples/checkout.json --where kind=Screen --attr reviewed=true
 ")]
     UpdateNode {
-        /// The node's slug.
-        slug: String,
-        /// Path to the graph JSON file (rewritten atomically, canonical form;
-        /// optional, resolves $MAAPP_GRAPH then .maapp/graph.json when omitted).
-        file: Option<PathBuf>,
-        /// Replace the one-line intent.
-        #[arg(long)]
-        intent: Option<String>,
-        /// refs entry K=V to set (repeatable).
-        #[arg(long = "ref", value_name = "K=V")]
-        refs: Vec<String>,
-        /// attrs entry K=V to set (repeatable).
-        #[arg(long = "attr", value_name = "K=V")]
-        attrs: Vec<String>,
-        /// Bump meta.provenance.asOf to this SHA in the same atomic write.
-        #[arg(long = "as-of", value_name = "SHA")]
-        as_of: Option<String>,
+        /// Slugs (one or more) and optionally the graph file, plus flags:
+        /// --intent I, --ref k=v, --attr k=v, --where k=v, --as-of SHA. The
+        /// graph file resolves $MAAPP_GRAPH then .maapp/graph.json when omitted.
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        rest: Vec<String>,
     },
-    /// Remove a node; refuses when incident edges exist unless --cascade.
+    /// Remove one or more nodes; refuses when incident edges exist unless
+    /// --cascade. Batch by listing multiple slugs or a --where key=value filter.
     #[command(after_long_help = "\
 Examples:
   # Refuses while incident edges exist (lists them; file untouched)
   maapp remove-node comp:chat/TypingIndicator examples/chat.json
 
-  # Cascade: remove the node plus its incident edges
-  maapp remove-node comp:chat/TypingIndicator examples/chat.json --cascade
+  # Cascade: remove several nodes plus their incident edges (batch by slug)
+  maapp remove-node comp:chat/TypingIndicator comp:chat/Composer examples/chat.json --cascade
+
+  # Batch by selector: remove every node tagged refs.slice=S3
+  maapp remove-node examples/checkout.json --where refs.slice=S3 --cascade
 ")]
     RemoveNode {
-        /// The node's slug.
-        slug: String,
-        /// Path to the graph JSON file (rewritten atomically, canonical form;
-        /// optional, resolves $MAAPP_GRAPH then .maapp/graph.json when omitted).
-        file: Option<PathBuf>,
-        /// Also remove incident edges (prints exactly what was removed).
-        #[arg(long)]
-        cascade: bool,
-        /// Bump meta.provenance.asOf to this SHA in the same atomic write.
-        #[arg(long = "as-of", value_name = "SHA")]
-        as_of: Option<String>,
+        /// Slugs (one or more) and optionally the graph file, plus flags:
+        /// --cascade, --where k=v, --as-of SHA. The graph file resolves
+        /// $MAAPP_GRAPH then .maapp/graph.json when omitted.
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        rest: Vec<String>,
     },
     /// Add a typed edge (signature-checked at add time via the validator).
     #[command(after_long_help = "\
@@ -273,6 +263,44 @@ Examples:
         #[arg(long = "as-of", value_name = "SHA")]
         as_of: Option<String>,
     },
+    /// Canonicalize a graph file, or (with --check) report whether it is
+    /// canonical without writing (the anti-hand-edit linter gate).
+    #[command(after_long_help = "\
+Examples:
+  # Rewrite a graph to canonical form (idempotent, atomic)
+  maapp fmt .maapp/graph.json
+
+  # Lint-only: exit 1 (naming the file) if non-canonical, write nothing
+  maapp fmt .maapp/graph.json --check
+")]
+    Fmt {
+        /// Path to the graph JSON file (rewritten atomically unless --check;
+        /// optional, resolves $MAAPP_GRAPH then .maapp/graph.json when omitted).
+        file: Option<PathBuf>,
+        /// Report non-canonical (exit 1, name the path) and write nothing,
+        /// instead of rewriting — for pre-commit / CI gating.
+        #[arg(long)]
+        check: bool,
+    },
+    /// Mechanically upgrade a graph's schema to the engine's latest minor
+    /// (or --to), a version bump the additive minor delta makes safe.
+    #[command(after_long_help = "\
+Examples:
+  # Upgrade a behind-schema graph to the engine's latest minor
+  maapp migrate .maapp/graph.json
+
+  # Upgrade to an explicit target minor
+  maapp migrate .maapp/graph.json --to 1.4
+")]
+    Migrate {
+        /// Path to the graph JSON file (rewritten atomically; optional, resolves
+        /// $MAAPP_GRAPH then .maapp/graph.json when omitted).
+        file: Option<PathBuf>,
+        /// Target version: a minor ('4') or MAJOR.MINOR ('1.4'); defaults to
+        /// the engine's latest known minor.
+        #[arg(long, value_name = "MINOR")]
+        to: Option<String>,
+    },
     /// Export a slice as a complete, valid, dispatchable graph document
     /// (scoped read: a cold agent reads a slice, never the whole file).
     #[command(after_long_help = "\
@@ -285,17 +313,24 @@ Examples:
 
   # Every node in a scope (all *:checkout/* slugs)
   maapp export examples/checkout.json --slice scope:checkout
+
+  # Every node tagged with a walking-skeleton slice id (refs.slice == S3)
+  maapp export examples/checkout.json --slice-tag S3
 ")]
     Export {
         /// Path to the graph JSON file (read-only; optional, resolves
         /// $MAAPP_GRAPH then .maapp/graph.json when omitted).
         file: Option<PathBuf>,
         /// Slice selector: a node slug (BFS neighborhood) or scope:<scope>
-        /// (all *:<scope>/* nodes).
-        #[arg(long, value_name = "SELECTOR")]
-        slice: String,
+        /// (all *:<scope>/* nodes). Mutually exclusive with --slice-tag.
+        #[arg(long, value_name = "SELECTOR", conflicts_with = "slice_tag")]
+        slice: Option<String>,
+        /// Slice-tag selector: every node carrying refs.slice == <tag>
+        /// (a walking-skeleton slice id, e.g. S3) plus interconnecting edges.
+        #[arg(long = "slice-tag", value_name = "TAG")]
+        slice_tag: Option<String>,
         /// Neighborhood depth for the slug form (default 1); invalid with a
-        /// scope: selector.
+        /// scope: or slice-tag selector.
         #[arg(long, value_name = "N")]
         depth: Option<usize>,
         /// Emit the slice document as canonical JSON (the machine surface).
@@ -335,6 +370,10 @@ Examples:
 
   # Self-contained interactive HTML view (requires --out)
   maapp render html examples/checkout.json --out checkout.html
+
+Note: hub/deps/storyboard/spine are text/ASCII renders; only `render html`
+emits SVG (client-side, inside the interactive view). `render storyboard|spine
+--out *.svg` is refused — use `render html` for an SVG/graphical view.
 ")]
     Render {
         /// Render target.
@@ -476,43 +515,9 @@ fn main() -> ExitCode {
             })()),
         },
         #[cfg(not(target_arch = "wasm32"))]
-        Command::UpdateNode {
-            slug,
-            file,
-            intent,
-            refs,
-            attrs,
-            as_of,
-        } => match resolve_graph_path(file) {
-            Err(hint) => resolution_error(&hint),
-            Ok(file) => emit_mutation((|| {
-                let refs = parse_kvs(&refs)?;
-                let attrs = parse_kvs(&attrs)?;
-                maapp::mutate::update_node(
-                    &file,
-                    &slug,
-                    intent.as_deref(),
-                    &refs,
-                    &attrs,
-                    as_of.as_deref(),
-                )
-            })()),
-        },
+        Command::UpdateNode { rest } => run_update_node(&rest),
         #[cfg(not(target_arch = "wasm32"))]
-        Command::RemoveNode {
-            slug,
-            file,
-            cascade,
-            as_of,
-        } => match resolve_graph_path(file) {
-            Err(hint) => resolution_error(&hint),
-            Ok(file) => emit_mutation(maapp::mutate::remove_node(
-                &file,
-                &slug,
-                cascade,
-                as_of.as_deref(),
-            )),
-        },
+        Command::RemoveNode { rest } => run_remove_node(&rest),
         #[cfg(not(target_arch = "wasm32"))]
         Command::AddEdge {
             r#type,
@@ -554,13 +559,34 @@ fn main() -> ExitCode {
             eprintln!("maapp: mutation verbs are native-only (they rewrite the graph on disk)");
             ExitCode::from(2)
         }
+        #[cfg(not(target_arch = "wasm32"))]
+        Command::Fmt { file, check } => match resolve_graph_path(file) {
+            Ok(p) => run_fmt(&p, check),
+            Err(hint) => resolution_error(&hint),
+        },
+        #[cfg(target_arch = "wasm32")]
+        Command::Fmt { .. } => {
+            eprintln!("maapp: fmt is native-only (it rewrites the graph file on disk)");
+            ExitCode::from(2)
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        Command::Migrate { file, to } => match resolve_graph_path(file) {
+            Ok(p) => run_migrate(&p, to.as_deref()),
+            Err(hint) => resolution_error(&hint),
+        },
+        #[cfg(target_arch = "wasm32")]
+        Command::Migrate { .. } => {
+            eprintln!("maapp: migrate is native-only (it rewrites the graph file on disk)");
+            ExitCode::from(2)
+        }
         Command::Export {
             file,
             slice,
+            slice_tag,
             depth,
             json,
         } => match resolve_graph_path(file) {
-            Ok(p) => run_export(&p, &slice, depth, json),
+            Ok(p) => run_export(&p, slice.as_deref(), slice_tag.as_deref(), depth, json),
             Err(hint) => resolution_error(&hint),
         },
         Command::Query { verb, rest } => run_query(&verb, &rest),
@@ -655,14 +681,310 @@ fn emit_mutation(result: Result<maapp::MutationOutcome, maapp::EngineError>) -> 
     }
 }
 
+/// Split raw positional tokens into slugs and an optional graph file. A token
+/// is the FILE if it ends with `.json` or carries no `:` (maapp slugs always
+/// have a `kind:` prefix and never end `.json`); everything else is a slug. At
+/// most one file token is allowed.
+#[cfg(not(target_arch = "wasm32"))]
+fn classify_positionals(positionals: &[&str]) -> Result<(Vec<String>, Option<PathBuf>), String> {
+    let mut slugs: Vec<String> = Vec::new();
+    let mut file: Option<String> = None;
+    for &p in positionals {
+        let is_file = p.ends_with(".json") || !p.contains(':');
+        if is_file {
+            if let Some(prev) = &file {
+                return Err(format!(
+                    "multiple graph file paths given ('{prev}' and '{p}'); pass exactly one"
+                ));
+            }
+            file = Some(p.to_string());
+        } else {
+            slugs.push(p.to_string());
+        }
+    }
+    Ok((slugs, file.map(PathBuf::from)))
+}
+
+/// Parse an optional `--where key=value` flag into a `(key, value)` pair.
+#[cfg(not(target_arch = "wasm32"))]
+fn parse_where(raw: &Option<String>) -> Result<Option<(String, String)>, String> {
+    match raw {
+        None => Ok(None),
+        Some(s) => match s.split_once('=') {
+            Some((k, v)) if !k.is_empty() => Ok(Some((k.to_string(), v.to_string()))),
+            _ => Err(format!("--where expects key=value, got '{s}'")),
+        },
+    }
+}
+
+/// Build a batch selector from parsed slugs + an optional `--where` pair,
+/// enforcing that exactly one form is present.
+#[cfg(not(target_arch = "wasm32"))]
+fn build_selector<'a>(
+    slugs: &'a [String],
+    where_kv: Option<&'a (String, String)>,
+) -> Result<maapp::NodeSelector<'a>, String> {
+    match where_kv {
+        Some((k, v)) => {
+            if !slugs.is_empty() {
+                return Err(
+                    "--where cannot be combined with slug positionals; use one or the other"
+                        .to_string(),
+                );
+            }
+            Ok(maapp::NodeSelector::Where { key: k, value: v })
+        }
+        None => {
+            if slugs.is_empty() {
+                return Err(
+                    "no target given: pass one or more <slug>, or --where key=value".to_string(),
+                );
+            }
+            Ok(maapp::NodeSelector::Slugs(slugs))
+        }
+    }
+}
+
+/// Parse + dispatch `update-node` (single or batch, T3b). Flag layout is
+/// hand-parsed (like `query`/`render`) so slugs, an optional trailing file, and
+/// flags can appear in any order.
+#[cfg(not(target_arch = "wasm32"))]
+fn run_update_node(rest: &[String]) -> ExitCode {
+    let mut intent: Option<String> = None;
+    let mut refs: Vec<String> = Vec::new();
+    let mut attrs: Vec<String> = Vec::new();
+    let mut as_of: Option<String> = None;
+    let mut where_raw: Option<String> = None;
+    let mut positionals: Vec<&str> = Vec::new();
+
+    let mut it = rest.iter();
+    while let Some(tok) = it.next() {
+        match tok.as_str() {
+            "--intent" => match it.next() {
+                Some(v) => intent = Some(v.clone()),
+                None => return resolution_error("--intent requires a value"),
+            },
+            "--ref" => match it.next() {
+                Some(v) => refs.push(v.clone()),
+                None => return resolution_error("--ref requires a K=V value"),
+            },
+            "--attr" => match it.next() {
+                Some(v) => attrs.push(v.clone()),
+                None => return resolution_error("--attr requires a K=V value"),
+            },
+            "--as-of" => match it.next() {
+                Some(v) => as_of = Some(v.clone()),
+                None => return resolution_error("--as-of requires a SHA value"),
+            },
+            "--where" => match it.next() {
+                Some(v) => where_raw = Some(v.clone()),
+                None => return resolution_error("--where requires a key=value value"),
+            },
+            other => positionals.push(other),
+        }
+    }
+
+    let (slugs, file) = match classify_positionals(&positionals) {
+        Ok(x) => x,
+        Err(e) => return resolution_error(&e),
+    };
+    let where_kv = match parse_where(&where_raw) {
+        Ok(x) => x,
+        Err(e) => return resolution_error(&e),
+    };
+    let selector = match build_selector(&slugs, where_kv.as_ref()) {
+        Ok(s) => s,
+        Err(e) => return resolution_error(&e),
+    };
+    let file = match resolve_graph_path(file) {
+        Ok(p) => p,
+        Err(hint) => return resolution_error(&hint),
+    };
+    emit_mutation((|| {
+        let refs = parse_kvs(&refs)?;
+        let attrs = parse_kvs(&attrs)?;
+        maapp::mutate::update_nodes(
+            &file,
+            selector,
+            intent.as_deref(),
+            &refs,
+            &attrs,
+            as_of.as_deref(),
+        )
+    })())
+}
+
+/// Parse + dispatch `remove-node` (single or batch, T3b). Same hand-parsed
+/// layout as `update-node`; flags are `--cascade`, `--where`, `--as-of`.
+#[cfg(not(target_arch = "wasm32"))]
+fn run_remove_node(rest: &[String]) -> ExitCode {
+    let mut cascade = false;
+    let mut as_of: Option<String> = None;
+    let mut where_raw: Option<String> = None;
+    let mut positionals: Vec<&str> = Vec::new();
+
+    let mut it = rest.iter();
+    while let Some(tok) = it.next() {
+        match tok.as_str() {
+            "--cascade" => cascade = true,
+            "--as-of" => match it.next() {
+                Some(v) => as_of = Some(v.clone()),
+                None => return resolution_error("--as-of requires a SHA value"),
+            },
+            "--where" => match it.next() {
+                Some(v) => where_raw = Some(v.clone()),
+                None => return resolution_error("--where requires a key=value value"),
+            },
+            other => positionals.push(other),
+        }
+    }
+
+    let (slugs, file) = match classify_positionals(&positionals) {
+        Ok(x) => x,
+        Err(e) => return resolution_error(&e),
+    };
+    let where_kv = match parse_where(&where_raw) {
+        Ok(x) => x,
+        Err(e) => return resolution_error(&e),
+    };
+    let selector = match build_selector(&slugs, where_kv.as_ref()) {
+        Ok(s) => s,
+        Err(e) => return resolution_error(&e),
+    };
+    let file = match resolve_graph_path(file) {
+        Ok(p) => p,
+        Err(hint) => return resolution_error(&hint),
+    };
+    emit_mutation(maapp::mutate::remove_nodes(
+        &file,
+        selector,
+        cascade,
+        as_of.as_deref(),
+    ))
+}
+
+// ---------------------------------------------------------------------------
+// fmt (native-only: rewrites the graph file on disk)
+// ---------------------------------------------------------------------------
+
+/// Run `fmt [--check]`: canonicalize the graph, or (with `--check`) report
+/// whether it is canonical. Exit 0 canonical/rewritten, 1 non-canonical under
+/// `--check` (the file path prints to stdout, `gofmt -l` style — paths only),
+/// 2 on any load error.
+#[cfg(not(target_arch = "wasm32"))]
+fn run_fmt(file: &std::path::Path, check: bool) -> ExitCode {
+    match maapp::fmt(file, check) {
+        Ok(maapp::FmtOutcome::AlreadyCanonical) => {
+            println!("CANONICAL — {}", file.display());
+            ExitCode::SUCCESS
+        }
+        Ok(maapp::FmtOutcome::Rewrote) => {
+            println!("FORMATTED {}", file.display());
+            ExitCode::SUCCESS
+        }
+        Ok(maapp::FmtOutcome::NeedsFormat) => {
+            // Paths only: the offending file path to stdout (a CI/pre-commit
+            // gate greps the exit code; a human sees which file failed), the
+            // fix hint to stderr. Never a content dump.
+            println!("{}", file.display());
+            eprintln!(
+                "maapp: {} is not canonical; run `maapp fmt {}` to rewrite",
+                file.display(),
+                file.display()
+            );
+            ExitCode::from(1)
+        }
+        Err(e) => {
+            eprintln!("maapp: {e}");
+            ExitCode::from(2)
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// migrate (native-only: rewrites the graph file on disk)
+// ---------------------------------------------------------------------------
+
+/// Run `migrate [--to <minor>]`: bump the graph schema to the engine's latest
+/// (or `--to`). Exit 0 on success (including a no-op already-at-target), 2 on
+/// any usage/load error.
+#[cfg(not(target_arch = "wasm32"))]
+fn run_migrate(file: &std::path::Path, to: Option<&str>) -> ExitCode {
+    match maapp::migrate(file, to) {
+        Ok(outcome) => {
+            if outcome.changed {
+                println!(
+                    "MIGRATED {} {} -> {}",
+                    file.display(),
+                    outcome.from,
+                    outcome.to
+                );
+            } else {
+                println!("{} already at {} (no change)", file.display(), outcome.to);
+            }
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("maapp: {e}");
+            ExitCode::from(2)
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // export --slice (pure compute over the loaded graph; wasm-clean lib fn)
 // ---------------------------------------------------------------------------
 
-/// Run `export --slice`: emit the slice as a complete graph document
-/// (canonical JSON with `--json`, a human summary otherwise). Exit 0 on
-/// success, 2 on any usage/input error.
-fn run_export(file: &std::path::Path, slice: &str, depth: Option<usize>, json: bool) -> ExitCode {
+/// Run `export --slice` / `export --slice-tag`: emit the slice as a complete
+/// graph document (canonical JSON with `--json`, a human summary otherwise).
+/// Exactly one of `slice`/`slice_tag` must be present (clap enforces mutual
+/// exclusion; this fn enforces "at least one"). Exit 0 on success, 2 on any
+/// usage/input error.
+fn run_export(
+    file: &std::path::Path,
+    slice: Option<&str>,
+    slice_tag: Option<&str>,
+    depth: Option<usize>,
+    json: bool,
+) -> ExitCode {
+    // The display string for the human summary + a selector, from whichever
+    // form was given (clap guarantees not-both; guard against neither here).
+    let (selector, display): (maapp::SliceSelector<'_>, String) = if let Some(tag) = slice_tag {
+        if depth.is_some() {
+            eprintln!(
+                "maapp: --depth is not valid with a --slice-tag selector (a tag slice has no depth)"
+            );
+            return ExitCode::from(2);
+        }
+        (
+            maapp::SliceSelector::SliceTag(tag),
+            format!("slice-tag:{tag}"),
+        )
+    } else if let Some(slice) = slice {
+        if let Some(scope) = slice.strip_prefix("scope:") {
+            if depth.is_some() {
+                eprintln!(
+                    "maapp: --depth is not valid with a scope: selector (a scope has no depth)"
+                );
+                return ExitCode::from(2);
+            }
+            (maapp::SliceSelector::Scope(scope), slice.to_string())
+        } else {
+            (
+                maapp::SliceSelector::Node {
+                    slug: slice,
+                    depth: depth.unwrap_or(1),
+                },
+                slice.to_string(),
+            )
+        }
+    } else {
+        eprintln!(
+            "maapp: export requires a selector: pass --slice <slug|scope:<s>> or --slice-tag <tag>"
+        );
+        return ExitCode::from(2);
+    };
+
     let g = match load_graph_from_path(file) {
         Ok(g) => g,
         Err(e) => {
@@ -670,18 +992,7 @@ fn run_export(file: &std::path::Path, slice: &str, depth: Option<usize>, json: b
             return ExitCode::from(2);
         }
     };
-    let selector = if let Some(scope) = slice.strip_prefix("scope:") {
-        if depth.is_some() {
-            eprintln!("maapp: --depth is not valid with a scope: selector (a scope has no depth)");
-            return ExitCode::from(2);
-        }
-        maapp::SliceSelector::Scope(scope)
-    } else {
-        maapp::SliceSelector::Node {
-            slug: slice,
-            depth: depth.unwrap_or(1),
-        }
-    };
+    let slice = display.as_str();
     let doc = match maapp::export_slice(&g, selector) {
         Ok(d) => d,
         Err(e) => {
@@ -1407,6 +1718,22 @@ fn run_render(verb: &str, rest: &[String]) -> ExitCode {
     if verb == "html" && out_path.is_none() {
         eprintln!(
             "maapp: render html requires --out <path> (write the self-contained HTML to this path)"
+        );
+        return ExitCode::from(2);
+    }
+
+    // T8 — storyboard/spine emit ASCII, not SVG. A `--out *.svg` would silently
+    // write ASCII into a .svg file; refuse and point at `render html` (the only
+    // real SVG/interactive surface). Implementing standalone SVG emitters for
+    // both storyboard AND spine is not a bounded change: there is no reusable
+    // server-side SVG code (the html template's SVG is client-side JS over the
+    // embedded graph JSON), so a from-scratch layout→SVG pipeline for both views
+    // would far exceed the bounded budget — hence the policy, not the emitter.
+    if matches!(verb, "storyboard" | "spine")
+        && out_path.is_some_and(|p| p.to_ascii_lowercase().ends_with(".svg"))
+    {
+        eprintln!(
+            "maapp: render {verb} emits ASCII, not SVG; use `render html --out <file>.html` for a real SVG / interactive view"
         );
         return ExitCode::from(2);
     }
