@@ -6,8 +6,9 @@
 //! - `migrate` bumps a behind-schema graph to the engine's latest minor (or
 //!   `--to`), a mechanical + additive upgrade (1.3 -> 1.4 is a version bump; the
 //!   1.4 additions — meta.flows, Trigger.attrs.cause, attrEnumRegistry — are all
-//!   optional, so no content rewrite is required). The write is atomic +
-//!   canonical, like the mutation verbs.
+//!   optional, so no content rewrite is required). The write is a MINIMAL
+//!   in-place bump that preserves the document's authored order; a redundant
+//!   `meta.version` is bumped in lockstep when present (never injected).
 //! - A graph already at the target is a no-op (exit 0, file byte-untouched).
 //! - A downgrade, an unknown-future target, a cross-major migration, or a graph
 //!   with no parseable version is a usage error (exit 2), file untouched.
@@ -162,6 +163,49 @@ fn migrate_graph_without_version_is_refused() {
         .assert()
         .code(2)
         .stderr(predicate::str::contains("version"));
+}
+
+#[test]
+fn migrate_bumps_redundant_meta_version_in_the_same_write() {
+    let dir = TempDir::new().unwrap();
+    let mut doc = doc_at("1.3");
+    // A redundant meta.version field (the shipped-example convention) that must
+    // be bumped in lockstep with the top-level version.
+    doc.as_object_mut()
+        .unwrap()
+        .insert("meta".into(), json!({"version": "1.3"}));
+    let path = write(&dir, "g.json", &doc);
+
+    maapp()
+        .args(["migrate", path.to_str().unwrap()])
+        .assert()
+        .success();
+
+    let out = read(&path);
+    assert_eq!(out["version"], "1.4", "top-level version bumped");
+    assert_eq!(
+        out["meta"]["version"], "1.4",
+        "meta.version bumped in lockstep"
+    );
+}
+
+#[test]
+fn migrate_does_not_inject_meta_version_when_absent() {
+    let dir = TempDir::new().unwrap();
+    // doc_at carries no meta block at all.
+    let path = write(&dir, "g.json", &doc_at("1.3"));
+
+    maapp()
+        .args(["migrate", path.to_str().unwrap()])
+        .assert()
+        .success();
+
+    let out = read(&path);
+    assert_eq!(out["version"], "1.4");
+    assert!(
+        out.get("meta").is_none(),
+        "migrate must not invent a meta block / meta.version when none exists: {out}"
+    );
 }
 
 #[test]

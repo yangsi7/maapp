@@ -49,7 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mechanically upgrades a behind-schema graph to the engine's latest known minor (or `--to`), an
   additive version bump. The write is a MINIMAL in-place bump that preserves the document's existing
   order (a version upgrade never wholesale-reorders an authored file; run `fmt` for that), guarded by
-  the mutation verbs' no-regression rule. A graph already at the target is a no-op (no write); a
+  the mutation verbs' no-regression rule. A redundant `meta.version` field (the shipped-example
+  convention) is bumped in lockstep when present, and never injected when absent. A graph already at the target is a no-op (no write); a
   downgrade, a cross-major migration, an unknown-future target, or a graph with no parseable version
   is refused (exit 2, file untouched). `validate` now emits the previously-silent `W_VERSION_BEHIND`
   advisory when a graph's minor is behind the engine, pointing at `maapp migrate` — so an adopter

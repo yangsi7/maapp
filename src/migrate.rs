@@ -114,6 +114,14 @@ pub fn migrate(path: &Path, to: Option<&str>) -> Result<MigrateOutcome, EngineEr
     doc.as_object_mut()
         .ok_or(EngineError::MalformedDocument("top level is not an object"))?
         .insert("version".to_string(), Value::String(to.clone()));
+    // Bump the redundant `meta.version` in lockstep when it is PRESENT (the
+    // shipped-example convention) — updating in place preserves its position.
+    // Never inject one when absent: migrate must not invent fields.
+    if let Some(meta) = doc.get_mut("meta").and_then(Value::as_object_mut)
+        && meta.contains_key("version")
+    {
+        meta.insert("version".to_string(), Value::String(to.clone()));
+    }
 
     let check = Graph::from_doc(doc.clone())?;
     let would_be: Vec<Finding> = validate(&check).into_iter().filter(Finding::hard).collect();

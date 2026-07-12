@@ -1,7 +1,7 @@
 {
   "meta": {
     "schema": "chat-graph",
-    "version": "1.3",
+    "version": "1.4",
     "vocab": "spec/EDGE-VOCABULARY.md",
     "query": "graph query <node|neighbors|blast-radius|trace|view|orphans> [args] <file>",
     "validate": "graph validate <file>",

@@ -1,7 +1,7 @@
 {
   "meta": {
     "schema": "checkout-graph",
-    "version": "1.3",
+    "version": "1.4",
     "vocab": "spec/EDGE-VOCABULARY.md",
     "app": "e-commerce checkout (cart -> shipping -> payment -> confirm -> complete)",
     "mobbin_ref": "Under Armour 'Purchasing a product' flow eab13d90-ca43-4141-80ee-849aabe60726; richer payment-method boundary modeled after SHEIN 'Placing an order' 0509f742",
