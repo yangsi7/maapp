@@ -234,6 +234,8 @@ ships with a `.sha256` and a unified `sha256.sum`.
   sample size, reproduce command and limitations per result
 - [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md): wiring maapp into Claude Code, Cursor,
   Codex / AGENTS.md agents, and any other harness
+- [docs/ADOPTION.md](docs/ADOPTION.md): cutting over from bespoke graph tooling, cold-starting
+  a graph on an existing app, and the drift-baseline ratchet
 - [docs/EDGE-VOCABULARY.md](docs/EDGE-VOCABULARY.md): every edge type, its required
   from/to node kinds and attrs, one example line each
 - [CONTRIBUTING.md](CONTRIBUTING.md): dev setup and the 5-command verification gate
