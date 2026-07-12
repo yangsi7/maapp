@@ -41,6 +41,10 @@ pub enum SliceSelector<'a> {
     /// `--slice scope:<scope>`: every node whose slug domain is `<scope>`
     /// (e.g. `scope:webhook` → all `*:webhook/*` nodes).
     Scope(&'a str),
+    /// `--slice-tag <tag>`: every node carrying `refs.slice == <tag>` (a
+    /// walking-skeleton slice id, e.g. `S3`), plus their interconnecting edges
+    /// (T6). Distinct from `Scope`, which matches the slug NAMESPACE.
+    SliceTag(&'a str),
 }
 
 // ---------------------------------------------------------------------------
@@ -217,6 +221,23 @@ pub fn export_slice(g: &Graph, selector: SliceSelector<'_>) -> Result<Value, Eng
             );
             (selected, Value::Object(annotation))
         }
+        SliceSelector::SliceTag(tag) => {
+            let selected: BTreeSet<String> = g
+                .nodes
+                .iter()
+                .filter(|(_, node)| node_slice_tag(node) == Some(tag))
+                .map(|(slug, _)| slug.clone())
+                .collect();
+            if selected.is_empty() {
+                return Err(EngineError::SliceTagMatchesNothing(tag.to_string()));
+            }
+            let mut annotation = Map::new();
+            annotation.insert(
+                "selector".to_string(),
+                Value::String(format!("slice-tag:{tag}")),
+            );
+            (selected, Value::Object(annotation))
+        }
     };
 
     // Carry every top-level key; rebuild nodes/edges to the slice; stamp
@@ -288,6 +309,12 @@ fn slug_domain(slug: &str) -> Option<&str> {
     let (_, rest) = slug.split_once(':')?;
     let (domain, _) = rest.split_once('/')?;
     Some(domain)
+}
+
+/// A node's `refs.slice` walking-skeleton tag as a string (`None` when absent
+/// or non-string). The `--slice-tag` selector matches on this exact value.
+fn node_slice_tag(node: &Node) -> Option<&str> {
+    node.refs.as_ref()?.get("slice")?.as_str()
 }
 
 #[cfg(test)]

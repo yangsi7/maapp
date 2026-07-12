@@ -15,7 +15,7 @@ fn maapp() -> Command {
 }
 
 /// Every user-facing subcommand (the built-in `help` is clap's own).
-const SUBCOMMANDS: [&str; 14] = [
+const SUBCOMMANDS: [&str; 16] = [
     "validate",
     "diff",
     "check-drift",
@@ -25,6 +25,8 @@ const SUBCOMMANDS: [&str; 14] = [
     "remove-node",
     "add-edge",
     "remove-edge",
+    "fmt",
+    "migrate",
     "export",
     "query",
     "render",

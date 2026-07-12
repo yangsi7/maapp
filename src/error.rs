@@ -99,6 +99,47 @@ pub enum EngineError {
     #[error("update-node {0}: no changes given (pass --intent, --ref and/or --attr)")]
     NoOpUpdate(String),
 
+    /// A batch `--where key=value` selector (T3b) matched no node — an empty
+    /// batch is a usage error, never a silent no-op write.
+    #[error("no nodes match --where {key}={value}")]
+    WhereMatchesNothing { key: String, value: String },
+
+    /// `migrate` on a graph whose `version` is absent or not a MAJOR.MINOR
+    /// string — there is no source schema to upgrade FROM (T5).
+    #[error(
+        "graph has no parseable \"version\" (MAJOR.MINOR) to migrate from; add one, e.g. \"version\": \"{0}\""
+    )]
+    MigrateNoVersion(String),
+
+    /// `migrate` cannot cross a major boundary (only mechanical minor upgrades
+    /// within a known major are additive/safe, T5).
+    #[error(
+        "cannot migrate across schema majors: graph is major {from_major}, this engine supports major {engine_major}"
+    )]
+    MigrateAcrossMajor { from_major: u64, engine_major: u64 },
+
+    /// `migrate --to` named a minor this engine does not know (a future schema
+    /// the engine cannot mechanically produce, T5).
+    #[error(
+        "cannot migrate to '{to}': unknown to this engine (supports {engine_major}.0–{engine_major}.{engine_minor_max}); upgrade maapp"
+    )]
+    MigrateUnknownTarget {
+        to: String,
+        engine_major: u64,
+        engine_minor_max: u64,
+    },
+
+    /// `migrate --to <minor>` behind the graph's current minor — `migrate` is
+    /// an upgrade verb, it never downgrades (T5).
+    #[error(
+        "cannot migrate: target {to} is behind the graph's current {from} (migrate never downgrades)"
+    )]
+    MigrateDowngrade { from: String, to: String },
+
+    /// `migrate --to` value was not a MINOR (`4`) or MAJOR.MINOR (`1.4`) string.
+    #[error("--to expects a minor ('4') or MAJOR.MINOR ('1.4') version, got '{0}'")]
+    MigrateBadTarget(String),
+
     /// `remove-node` refused: the node has incident edges and `--cascade` was
     /// not given (spec §4). `eids` lists them in document order.
     #[error(
@@ -130,6 +171,12 @@ pub enum EngineError {
     /// `export --slice scope:<s>` matched no node (an empty slice is useless).
     #[error("no nodes match scope '{0}'")]
     ScopeMatchesNothing(String),
+
+    /// `export --slice-tag <tag>` matched no node carrying that `refs.slice`
+    /// tag (an empty slice is useless — the pilot app hit this planning
+    /// `export --slice scope:S0` before slice-tag export existed, T6).
+    #[error("no nodes carry refs.slice '{0}'")]
+    SliceTagMatchesNothing(String),
 
     /// `init` could not merge the hooks block into an existing
     /// `.claude/settings.json` (invalid JSON, or a `hooks`/`PostToolUse` slot

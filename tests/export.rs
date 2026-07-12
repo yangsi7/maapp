@@ -346,3 +346,153 @@ fn export_human_mode_prints_summary() {
         ))
         .stdout(predicate::str::contains("ds:supabase/Orders"));
 }
+
+// ---------------------------------------------------------------------------
+// T6 — slice-tag export (`--slice-tag <tag>`: all nodes carrying refs.slice==tag
+// plus their interconnecting edges; same complete-valid-subgraph contract as
+// --slice; exit 2 with a hint when the tag matches nothing).
+// ---------------------------------------------------------------------------
+
+/// A minimal clean graph whose nodes carry `refs.slice` walking-skeleton tags:
+/// S1 = {screen:home/Main, component:home/List, trigger:home/Tap},
+/// S2 = {act:home/Save, store:home/Cache}. Written to `<dir>/tagged.json`.
+fn write_tagged(dir: &TempDir) -> std::path::PathBuf {
+    let doc = serde_json::json!({
+        "schema": "maapp-graph",
+        "version": "1.3",
+        "nodes": {
+            "surface": {
+                "screen:home/Main": {"kind": "Screen", "intent": "Home.", "refs": {"slice": "S1"}},
+                "component:home/List": {"kind": "Component", "intent": "List.", "refs": {"slice": "S1"}}
+            },
+            "logic": {
+                "trigger:home/Tap": {"kind": "Trigger", "intent": "Tap.", "refs": {"slice": "S1"}},
+                "act:home/Save": {"kind": "MutationAction", "intent": "Save.", "refs": {"slice": "S2"}}
+            },
+            "substrate": {
+                "store:home/Cache": {"kind": "StateStore", "intent": "Cache.", "refs": {"slice": "S2"}}
+            }
+        },
+        "edges": [
+            {"type": "renders", "from": "screen:home/Main", "to": "component:home/List"},
+            {"type": "handles", "from": "component:home/List", "to": "trigger:home/Tap", "event": "tap"},
+            {"type": "fires", "from": "trigger:home/Tap", "to": "act:home/Save"},
+            {"type": "writes", "from": "act:home/Save", "to": "store:home/Cache", "mode": "set"}
+        ]
+    });
+    let path = dir.path().join("tagged.json");
+    std::fs::write(&path, serde_json::to_vec_pretty(&doc).unwrap()).unwrap();
+    path
+}
+
+#[test]
+fn slice_tag_selects_tagged_nodes_and_interconnecting_edges() {
+    let dir = TempDir::new().unwrap();
+    let path = write_tagged(&dir);
+
+    let doc = export_json(&[
+        "export",
+        "--slice-tag",
+        "S1",
+        path.to_str().unwrap(),
+        "--json",
+    ]);
+
+    // Every node carrying refs.slice == S1 (the fires edge to the S2 act is
+    // dropped by the both-endpoints closure rule).
+    assert_eq!(
+        slice_slugs(&doc),
+        vec![
+            "component:home/List",
+            "screen:home/Main",
+            "trigger:home/Tap",
+        ]
+    );
+    assert_eq!(
+        slice_edges(&doc),
+        vec![
+            (
+                "handles".to_string(),
+                "component:home/List".to_string(),
+                "trigger:home/Tap".to_string()
+            ),
+            (
+                "renders".to_string(),
+                "screen:home/Main".to_string(),
+                "component:home/List".to_string()
+            ),
+        ]
+    );
+
+    // A complete document: header carried, slice_of stamped with the tag selector.
+    assert_eq!(doc["schema"], "maapp-graph");
+    assert_eq!(doc["meta"]["slice_of"]["selector"], "slice-tag:S1");
+
+    // And it validates: 0 errors (W_ORPHAN suppressed in slice mode).
+    let (code, report) = validate_doc(&doc);
+    assert_eq!(code, 0, "slice-tag slice must validate clean: {report}");
+    assert_eq!(report["errors"], 0);
+}
+
+#[test]
+fn slice_tag_empty_match_exits_two_with_hint() {
+    let dir = TempDir::new().unwrap();
+    let path = write_tagged(&dir);
+
+    maapp()
+        .args([
+            "export",
+            "--slice-tag",
+            "S9",
+            path.to_str().unwrap(),
+            "--json",
+        ])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("no nodes carry refs.slice 'S9'"));
+}
+
+#[test]
+fn slice_tag_human_mode_prints_summary() {
+    let dir = TempDir::new().unwrap();
+    let path = write_tagged(&dir);
+
+    maapp()
+        .args(["export", "--slice-tag", "S2", path.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "SLICE slice-tag:S2: 2 node(s), 1 edge(s)",
+        ))
+        .stdout(predicate::str::contains("store:home/Cache"));
+}
+
+#[test]
+fn slice_tag_and_slice_are_mutually_exclusive() {
+    let dir = TempDir::new().unwrap();
+    let path = write_tagged(&dir);
+
+    maapp()
+        .args([
+            "export",
+            "--slice",
+            "screen:home/Main",
+            "--slice-tag",
+            "S1",
+            path.to_str().unwrap(),
+        ])
+        .assert()
+        .code(2);
+}
+
+#[test]
+fn slice_tag_requires_a_selector() {
+    let dir = TempDir::new().unwrap();
+    let path = write_tagged(&dir);
+
+    // Neither --slice nor --slice-tag given → usage error (exit 2).
+    maapp()
+        .args(["export", path.to_str().unwrap()])
+        .assert()
+        .code(2);
+}

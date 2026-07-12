@@ -28,6 +28,9 @@ index), API and library documentation (use the project docs), or anything a
 single file read answers faster.
 
 **Maintenance loop (keep the graph honest):** edit code -> update the touched
-graph nodes -> `maapp validate .maapp/graph.json` -> `maapp check-drift
-.maapp/graph.json --repo .` -> when green, `maapp stamp .maapp/graph.json --repo .`.
-CI fails the PR on validation errors or unresolved drift.
+graph nodes through the CRUD verbs (never hand-edit; the verbs emit canonical
+form) -> `maapp validate .maapp/graph.json` -> `maapp fmt .maapp/graph.json
+--check` (canonical-form gate; run `maapp fmt .maapp/graph.json` to fix a hand
+edit) -> `maapp check-drift .maapp/graph.json --repo .` -> when green,
+`maapp stamp .maapp/graph.json --repo .`. CI fails the PR on validation errors,
+a non-canonical graph, or unresolved drift.

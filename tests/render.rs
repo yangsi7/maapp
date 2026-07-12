@@ -391,6 +391,92 @@ fn render_html_unknown_file_exits_two() {
 }
 
 // ---------------------------------------------------------------------------
+// T8 — SVG render policy. storyboard/spine emit ASCII; a `--out *.svg` used to
+// silently write ASCII into a .svg file. It now refuses (exit 2) and points at
+// `render html` (the only real SVG surface). `--out` to a non-.svg file still
+// writes the ASCII text.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn render_storyboard_out_svg_is_refused_with_pointer_to_html() {
+    let dir = tempdir();
+    let out = dir.join("board.svg");
+    maapp()
+        .args([
+            "render",
+            "storyboard",
+            "examples/chat.json",
+            "--out",
+            out.to_str().unwrap(),
+        ])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("ASCII"))
+        .stderr(predicate::str::contains("render html"));
+    assert!(!out.exists(), "no .svg file must be written on refusal");
+}
+
+#[test]
+fn render_spine_out_svg_is_refused() {
+    let dir = tempdir();
+    let out = dir.join("spine.svg");
+    maapp()
+        .args([
+            "render",
+            "spine",
+            "examples/chat.json",
+            "--out",
+            out.to_str().unwrap(),
+        ])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("ASCII"));
+    assert!(!out.exists());
+}
+
+#[test]
+fn render_storyboard_out_svg_case_insensitive() {
+    let dir = tempdir();
+    let out = dir.join("board.SVG");
+    maapp()
+        .args([
+            "render",
+            "storyboard",
+            "examples/chat.json",
+            "--out",
+            out.to_str().unwrap(),
+        ])
+        .assert()
+        .code(2);
+    assert!(!out.exists());
+}
+
+#[test]
+fn render_storyboard_out_non_svg_still_writes_ascii() {
+    let dir = tempdir();
+    let out = dir.join("board.txt");
+    maapp()
+        .args([
+            "render",
+            "storyboard",
+            "examples/chat.json",
+            "--out",
+            out.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+    let content = std::fs::read_to_string(&out).unwrap();
+    assert!(
+        !content.is_empty(),
+        "ASCII storyboard written to a .txt --out"
+    );
+    assert!(
+        !content.trim_start().starts_with("<svg"),
+        "storyboard output is ASCII, not SVG markup"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // unknown render verb
 // ---------------------------------------------------------------------------
 
